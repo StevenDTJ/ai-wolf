@@ -119,6 +119,10 @@ function runSingleGame(seed: number): { terminated: boolean; failure: Simulation
     }
 
     const wolfTarget = pickOne(aliveGood, rng);
+    state = {
+      ...state,
+      status: 'werewolf_chat',
+    };
     state = processWerewolfKill(state, wolfTarget?.id ?? null);
     const afterKillFailure = assertInvariant(state, seed, 'after_werewolf_kill');
     if (afterKillFailure) {
@@ -126,6 +130,10 @@ function runSingleGame(seed: number): { terminated: boolean; failure: Simulation
     }
 
     const witch = getAlivePlayers(state).find(player => player.role === 'witch');
+    state = {
+      ...state,
+      status: 'night_witch',
+    };
     if (witch) {
       let decision: 'save' | 'poison' | 'none' = 'none';
       let targetId: string | null = null;
@@ -148,6 +156,10 @@ function runSingleGame(seed: number): { terminated: boolean; failure: Simulation
       state = eliminatePlayer(state, state.nightAction.killedId);
     }
 
+    state = {
+      ...state,
+      status: 'day',
+    };
     const afterWitchFailure = assertInvariant(state, seed, 'after_witch');
     if (afterWitchFailure) {
       return { terminated: false, failure: afterWitchFailure };

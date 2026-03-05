@@ -4,6 +4,7 @@ import {
   buildNightContext,
   createDefaultWolfPlayer,
   resolveWerewolfTargetId,
+  ensureTransitionStateValid,
 } from './useWolfGame';
 import { createWolfGame, startWolfGame } from '@/lib/wolf-engine';
 import { WolfPlayer } from '@/types';
@@ -57,5 +58,22 @@ describe('useWolfGame helpers', () => {
 
     const target = resolveWerewolfTargetId('我建议刀2号', '', aliveVictims);
     expect(target).toBeNull();
+  });
+
+  it('resolveWerewolfTargetId ignores dead killVote and uses alive fallback from message', () => {
+    const aliveVictims: WolfPlayer[] = [
+      { ...createDefaultWolfPlayer(3), id: 'alive-3', isAlive: true },
+      { ...createDefaultWolfPlayer(4), id: 'alive-4', isAlive: true },
+    ];
+
+    const target = resolveWerewolfTargetId('我建议刀3号', 'dead-2', aliveVictims);
+    expect(target).toBe('alive-3');
+  });
+
+  it('transition to day/night does not produce invariant errors for valid state', () => {
+    const state = createState();
+
+    expect(() => ensureTransitionStateValid(state, 'to_day')).not.toThrow();
+    expect(() => ensureTransitionStateValid(state, 'to_night')).not.toThrow();
   });
 });

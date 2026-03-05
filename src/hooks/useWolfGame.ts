@@ -27,6 +27,7 @@ import {
   getWolfPlayers,
   getSeer,
   getWitch,
+  getInvariantErrors,
 } from '@/lib/wolf-engine';
 import { buildContext } from '@/lib/wolf-engine/context';
 import { handleHunterElimination } from '@/lib/wolf-engine/hunterIntegration';
@@ -131,6 +132,13 @@ export function resolveWerewolfTargetId(
 }
 
 export type WolfPhaseTransition = 'to_day' | 'to_night';
+
+export function ensureTransitionStateValid(state: WolfGameState, transition: WolfPhaseTransition): void {
+  const errors = getInvariantErrors(state);
+  if (errors.length > 0) {
+    throw new Error('[' + transition + '] invariant_violation: ' + errors.join(','));
+  }
+}
 
 // Hook 返回类型
 export interface UseWolfGameReturn {
@@ -351,6 +359,7 @@ export function useWolfGame(): UseWolfGameReturn {
     const result = await generateWitchAction(witch, context);
 
     let newState = processWitchDecision(state, result.decision, result.targetId);
+    ensureTransitionStateValid(newState, 'to_day');
 
     const killedPlayer = state.nightAction.killedId
       ? state.players.find(p => p.id === state.nightAction.killedId)
@@ -543,6 +552,7 @@ export function useWolfGame(): UseWolfGameReturn {
     }
 
     let newState = processWerewolfKill(state, killTargetId);
+    ensureTransitionStateValid(newState, 'to_day');
 
     newState = {
       ...newState,
@@ -745,6 +755,7 @@ export function useWolfGame(): UseWolfGameReturn {
       players: newState.players.map(p => ({ ...p, wasProtected: false })),
     };
     newState = startNextRound(newState);
+    ensureTransitionStateValid(newState, 'to_night');
     queueTransition(newState, 'to_night');
     setCurrentSpeakerIndex(0);
     setCurrentStreamingContent('');
@@ -792,6 +803,8 @@ export function useWolfGame(): UseWolfGameReturn {
     stopGeneration,
   };
 }
+
+
 
 
 

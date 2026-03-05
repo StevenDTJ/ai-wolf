@@ -2,6 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { WolfPlayer, WolfRole, WolfMessage, WolfGameStatus } from '@/types';
 import { WolfGameState, WolfNightAction, WolfVoteResult } from './types';
+import { validateInvariants } from './invariants';
 
 // 角色分配：8人局 = 2狼人 + 3村民 + 1预言家 + 1女巫 + 1猎人
 const ROLES: WolfRole[] = ['werewolf', 'werewolf', 'villager', 'villager', 'villager', 'seer', 'witch', 'hunter'];
@@ -20,6 +21,11 @@ export function getAliveRoleTypes(players: WolfPlayer[]): string {
   const aliveRoles = players.map(p => p.role);
   const uniqueRoles = [...new Set(aliveRoles)];
   return uniqueRoles.map(r => ROLE_INFO[r]?.label || r).join('、');
+}
+
+// 供状态机阶段切换调用的统一不变量检查入口
+export function getInvariantErrors(state: WolfGameState): string[] {
+  return validateInvariants(state);
 }
 
 // 初始夜晚行动
@@ -498,6 +504,7 @@ export function startNextRound(state: WolfGameState): WolfGameState {
 export function resetWolfGame(): WolfGameState | null {
   return null;
 }
+
 
 
 

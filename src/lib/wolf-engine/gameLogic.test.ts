@@ -54,6 +54,7 @@ const makeState = (killedId: string | null): WolfGameState => ({
   witchPoisonUsed: false,
   witchDecision: 'none',
   witchTargetId: null,
+  hunterKillTargetId: null,
 });
 
 describe('processSeerCheck, processWerewolfKill, processWitchDecision', () => {

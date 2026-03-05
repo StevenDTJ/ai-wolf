@@ -140,6 +140,7 @@ export function createWolfGame(players: WolfPlayer[]): WolfGameState {
     witchPoisonUsed: false,
     witchDecision: 'none',
     witchTargetId: null,
+    hunterKillTargetId: null,
   };
 }
 
@@ -178,6 +179,7 @@ export function startWitchNight(state: WolfGameState): WolfGameState {
     status: 'night_witch',
     witchDecision: 'none',
     witchTargetId: null,
+    hunterKillTargetId: null,
   };
 }
 
@@ -472,6 +474,7 @@ export function startNextRound(state: WolfGameState): WolfGameState {
     nightAction: createInitialNightAction(),
     witchDecision: 'none',
     witchTargetId: null,
+    hunterKillTargetId: null,
     eliminatedPlayerId: undefined,
     // 保留之前的游戏记录，只清空本轮的投票数据
     votes: [],

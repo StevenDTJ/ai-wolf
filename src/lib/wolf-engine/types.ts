@@ -25,6 +25,8 @@ export interface WolfGameState {
   witchPoisonUsed: boolean;
   witchDecision: 'save' | 'poison' | 'none';
   witchTargetId: string | null;
+  // 猎人
+  hunterKillTargetId: string | null;
 }
 
 // 夜晚行动结果

@@ -1,0 +1,92 @@
+import { describe, it, expect } from 'vitest';
+import { handleHunterElimination } from './hunterIntegration';
+import { WolfGameState } from './types';
+import { WolfPlayer } from '@/types';
+
+const makePlayers = (): WolfPlayer[] => {
+  const roles: WolfPlayer['role'][] = [
+    'villager',
+    'villager',
+    'villager',
+    'werewolf',
+    'werewolf',
+    'seer',
+    'witch',
+    'hunter',
+  ];
+
+  return roles.map((role, index) => ({
+    id: `p${index + 1}`,
+    name: `玩家${index + 1}`,
+    role,
+    isAlive: index < 7, // p8 (hunter) is dead
+    hasWill: true,
+    wasProtected: false,
+    playerNumber: index + 1,
+    systemPrompt: '',
+    model: 'gpt-4o-mini',
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: '',
+  }));
+};
+
+const makeState = (eliminatedId?: string): WolfGameState => ({
+  id: 'game-1',
+  players: makePlayers(),
+  currentRound: 1,
+  status: 'day',
+  nightAction: {
+    protectedId: null,
+    checkedId: null,
+    checkResult: null,
+    killedId: null,
+    healedId: null,
+    poisonedId: null,
+  },
+  messages: [],
+  votes: [],
+  votingResults: {},
+  wolfChatMessages: [],
+  currentWolfChatPlayerIndex: 0,
+  lastProtectedId: null,
+  seerChecks: [],
+  witchSaveUsed: false,
+  witchPoisonUsed: false,
+  witchDecision: 'none',
+  witchTargetId: null,
+  eliminatedPlayerId: eliminatedId,
+  hunterKillTargetId: null,
+});
+
+// Mock AI 函数
+const mockAICall = async () => '选择：3';
+
+describe('handleHunterElimination', () => {
+  it('returns original state when no player eliminated', async () => {
+    const state = makeState(undefined);
+
+    const result = await handleHunterElimination(state, mockAICall);
+
+    expect(result).toBe(state);
+  });
+
+  it('returns original state when eliminated player is not hunter', async () => {
+    const state = makeState('p1'); // villager
+
+    const result = await handleHunterElimination(state, mockAICall);
+
+    expect(result).toBe(state);
+    expect(result.hunterKillTargetId).toBeNull();
+  });
+
+  it('processes hunter kill when hunter is eliminated', async () => {
+    const state = makeState('p8'); // hunter is eliminated
+
+    const result = await handleHunterElimination(state, mockAICall);
+
+    // 应该设置了 hunterKillTargetId
+    expect(result.hunterKillTargetId).not.toBeNull();
+    // 被击杀的玩家应该死亡
+    expect(result.players.find(p => p.id === result.hunterKillTargetId)?.isAlive).toBe(false);
+  });
+});

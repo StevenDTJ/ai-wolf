@@ -28,6 +28,7 @@ import {
   getSeer,
   getWitch,
 } from '@/lib/wolf-engine';
+import { handleHunterElimination } from '@/lib/wolf-engine/hunterIntegration';
 import {
   generateWitchAction,
   generateSeerAction,
@@ -692,6 +693,29 @@ export function useWolfGame(): UseWolfGameReturn {
           ...newState,
           messages: [...newState.messages, resultMsg],
         };
+      }
+
+      // 猎人被淘汰时，选择击杀目标
+      newState = await handleHunterElimination(newState);
+
+      // 如果猎人击杀了玩家，添加系统消息
+      if (newState.hunterKillTargetId) {
+        const killedTarget = newState.players.find(p => p.id === newState.hunterKillTargetId);
+        if (killedTarget) {
+          const hunterKillMsg: WolfMessage = {
+            id: uuidv4(),
+            playerId: 'system',
+            playerName: '系统',
+            content: `猎人带走了 ${killedTarget.name}！`,
+            type: 'speech',
+            round: state.currentRound,
+            timestamp: Date.now(),
+          };
+          newState = {
+            ...newState,
+            messages: [...newState.messages, hunterKillMsg],
+          };
+        }
       }
     } else if (voteOutcome.hasTie) {
       resultMsg = {

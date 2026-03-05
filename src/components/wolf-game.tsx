@@ -76,6 +76,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
   const [editingPlayer, setEditingPlayer] = useState<WolfPlayer | null>(null);
   const [editForm, setEditForm] = useState({
     name: '',
+    role: 'villager' as 'villager' | 'werewolf' | 'seer' | 'witch' | 'hunter',
     model: '',
     baseUrl: '',
     apiKey: '',
@@ -247,6 +248,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
     setEditingPlayer(player);
     setEditForm({
       name: player.name,
+      role: player.role || 'villager',
       model: player.model,
       baseUrl: player.baseUrl,
       apiKey: player.apiKey,
@@ -263,6 +265,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
     updatePlayer({
       ...editingPlayer,
       name: editForm.name.trim(),
+      role: editForm.role,
       model: editForm.model,
       baseUrl: editForm.baseUrl,
       apiKey: editForm.apiKey,
@@ -532,7 +535,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
                 })}
             </div>
 
-            {!session && players.length < 6 && (
+            {!session && players.length < 8 && (
               <Button
                 variant="outline"
                 className="w-full mt-2"
@@ -619,6 +622,21 @@ export function WolfGame({ wolf }: WolfGameProps) {
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 placeholder="请输入玩家名称"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">身份</Label>
+              <select
+                id="edit-role"
+                value={editForm.role}
+                onChange={(e) => setEditForm({ ...editForm, role: e.target.value as 'villager' | 'werewolf' | 'seer' | 'witch' | 'hunter' })}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="villager">村民</option>
+                <option value="werewolf">狼人</option>
+                <option value="seer">预言家</option>
+                <option value="witch">女巫</option>
+                <option value="hunter">猎人</option>
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-model">模型</Label>

@@ -1,0 +1,22 @@
+{
+  "name": "night-witch-save",
+  "players": [
+    { "id": "p1", "name": "玩家1", "role": "werewolf", "playerNumber": 1 },
+    { "id": "p2", "name": "玩家2", "role": "villager", "playerNumber": 2 },
+    { "id": "p3", "name": "玩家3", "role": "villager", "playerNumber": 3 },
+    { "id": "p4", "name": "玩家4", "role": "villager", "playerNumber": 4 },
+    { "id": "p5", "name": "玩家5", "role": "werewolf", "playerNumber": 5 },
+    { "id": "p6", "name": "玩家6", "role": "seer", "playerNumber": 6 },
+    { "id": "p7", "name": "玩家7", "role": "witch", "playerNumber": 7 },
+    { "id": "p8", "name": "玩家8", "role": "hunter", "playerNumber": 8 }
+  ],
+  "actions": [
+    { "type": "werewolf_kill", "targetId": "p2" },
+    { "type": "witch_decision", "decision": "save", "targetId": null }
+  ],
+  "expectedTimeline": [
+    "werewolf_kill:p2",
+    "witch_decision:save",
+    "night_deaths:none"
+  ]
+}

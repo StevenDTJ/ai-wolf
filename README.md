@@ -20,6 +20,21 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Wolf Release Gate
+
+Run the full 8-player wolf stability release checks:
+
+```bash
+npm run check:wolf:release
+```
+
+This command runs in order:
+- invariants + rule tests
+- golden replay tests
+- 20-game simulation tests
+
+Any failure exits with non-zero status.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -12,9 +12,15 @@ export function processHunterKill(
     return state;
   }
 
+  const hunterKillPhase = (state.status.startsWith('night') || state.status === 'werewolf_chat')
+    ? 'night'
+    : 'day';
+
   return {
     ...state,
     hunterKillTargetId: targetId,
+    hunterKillPhase,
+    hunterKillRound: state.currentRound,
     players: state.players.map(p =>
       p.id === targetId ? { ...p, isAlive: false } : p
     ),
@@ -89,3 +95,4 @@ export function parseHunterKillTarget(
 
   return null;
 }
+

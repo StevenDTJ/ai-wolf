@@ -1,5 +1,6 @@
 // 狼人杀游戏引擎 - 内部类型
 import { WolfPlayer, WolfMessage, WolfVote, WolfGameStatus } from '@/types';
+import type { PublicInfo, PrivateInfo } from './context';
 
 // 游戏状态
 export interface WolfGameState {
@@ -27,6 +28,9 @@ export interface WolfGameState {
   witchTargetId: string | null;
   // 猎人
   hunterKillTargetId: string | null;
+  hunterKillPhase: 'night' | 'day' | null;
+  hunterKillRound: number | null;
+  wolfKillHistory: Array<{ round: number; targetId: string }>;
 }
 
 // 夜晚行动结果
@@ -54,10 +58,13 @@ export interface NightContext {
   alivePlayers: WolfPlayer[];
   wolfPlayers: WolfPlayer[];
   nightAction: WolfNightAction;
-  seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
-  lastProtectedId: string | null;
-  witchSaveUsed: boolean;
-  witchPoisonUsed: boolean;
+  seerChecks?: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
+  lastProtectedId?: string | null;
+  witchSaveUsed?: boolean;
+  witchPoisonUsed?: boolean;
+  chatHistory?: string;
+  publicInfo: PublicInfo;
+  privateInfo: PrivateInfo;
 }
 
 // 白天发言上下文
@@ -66,6 +73,8 @@ export interface DaySpeechContext {
   players: WolfPlayer[];
   alivePlayers: WolfPlayer[];
   nightAction: WolfNightAction;
-  seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
   previousSpeeches: WolfMessage[];
+  publicInfo: PublicInfo;
+  privateInfo: PrivateInfo;
 }
+

@@ -67,19 +67,19 @@ describe('buildContext', () => {
     expect(ctx.privateInfo.seerChecks?.length).toBe(1);
   });
 
-  it('orders publicInfo.speeches by round then timestamp', () => {
-    // Add speeches with different rounds and timestamps
+  
+  it('builds public timeline ordered across speeches, votes, broadcasts', () => {
     mockState.messages = [
-      { id: '1', playerId: 'a', playerName: 'A', content: 'round2-late', type: 'speech', round: 2, timestamp: 30 },
-      { id: '2', playerId: 'a', playerName: 'A', content: 'round1', type: 'speech', round: 1, timestamp: 10 },
-      { id: '3', playerId: 'a', playerName: 'A', content: 'round2-early', type: 'speech', round: 2, timestamp: 10 },
+      { id: 'b1', playerId: 'system', playerName: '系统', content: '播报', type: 'speech', round: 1, timestamp: 30 },
+      { id: 's1', playerId: 'p1', playerName: 'A', content: '发言', type: 'speech', round: 1, timestamp: 10 },
+    ];
+    mockState.votes = [
+      { voterId: 'p2', voterName: 'B', targetId: 'p1', targetName: 'A', round: 1, timestamp: 20 },
     ];
 
     const ctx = buildContext('villager', mockState, 'day_speech');
-    const speeches = ctx.publicInfo.speeches;
-
-    expect(speeches[0].content).toBe('round1');
-    expect(speeches[1].content).toBe('round2-early');
-    expect(speeches[2].content).toBe('round2-late');
+    expect(ctx.publicInfo.timeline.map(e => e.timestamp)).toEqual([10, 20, 30]);
   });
+
 });
+

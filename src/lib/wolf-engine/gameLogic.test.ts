@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { processSeerCheck, processWerewolfKill, processWitchDecision } from './gameLogic';
 import { WolfGameState } from './types';
 import { WolfPlayer } from '@/types';
@@ -55,6 +55,9 @@ const makeState = (killedId: string | null): WolfGameState => ({
   witchDecision: 'none',
   witchTargetId: null,
   hunterKillTargetId: null,
+  hunterKillPhase: null,
+  hunterKillRound: null,
+  wolfKillHistory: [],
 });
 
 describe('processSeerCheck, processWerewolfKill, processWitchDecision', () => {

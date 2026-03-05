@@ -1,4 +1,4 @@
-﻿// 狼人杀游戏引擎 - 核心逻辑
+// 狼人杀游戏引擎 - 核心逻辑
 import { v4 as uuidv4 } from 'uuid';
 import { WolfPlayer, WolfRole, WolfMessage, WolfGameStatus } from '@/types';
 import { WolfGameState, WolfNightAction, WolfVoteResult } from './types';
@@ -141,6 +141,9 @@ export function createWolfGame(players: WolfPlayer[]): WolfGameState {
     witchDecision: 'none',
     witchTargetId: null,
     hunterKillTargetId: null,
+    hunterKillPhase: null,
+    hunterKillRound: null,
+    wolfKillHistory: [],
   };
 }
 
@@ -180,6 +183,8 @@ export function startWitchNight(state: WolfGameState): WolfGameState {
     witchDecision: 'none',
     witchTargetId: null,
     hunterKillTargetId: null,
+    hunterKillPhase: null,
+    hunterKillRound: null,
   };
 }
 
@@ -370,6 +375,10 @@ export function resolveWolfKill(state: WolfGameState): string | null {
 
 // 处理狼人击杀（只记录目标，真正生效在女巫阶段）
 export function processWerewolfKill(state: WolfGameState, targetId: string | null): WolfGameState {
+  const wolfKillHistory = targetId
+    ? [...(state.wolfKillHistory || []), { round: state.currentRound, targetId }]
+    : (state.wolfKillHistory || []);
+
   return {
     ...state,
     nightAction: {
@@ -378,6 +387,7 @@ export function processWerewolfKill(state: WolfGameState, targetId: string | nul
       healedId: null,
       poisonedId: null,
     },
+    wolfKillHistory,
   };
 }
 // 进入白天
@@ -475,6 +485,8 @@ export function startNextRound(state: WolfGameState): WolfGameState {
     witchDecision: 'none',
     witchTargetId: null,
     hunterKillTargetId: null,
+    hunterKillPhase: null,
+    hunterKillRound: null,
     eliminatedPlayerId: undefined,
     // 保留之前的游戏记录，只清空本轮的投票数据
     votes: [],
@@ -486,6 +498,10 @@ export function startNextRound(state: WolfGameState): WolfGameState {
 export function resetWolfGame(): WolfGameState | null {
   return null;
 }
+
+
+
+
 
 
 

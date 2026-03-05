@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -64,11 +64,13 @@ export function WolfGame({ wolf }: WolfGameProps) {
     currentMessageType,
     votes,
     votingResults,
+    pendingTransition,
     addPlayer,
     updatePlayer,
     removePlayer,
     initGame,
     nextAction,
+    continueTransition,
     resetGame,
   } = wolf;
 
@@ -164,6 +166,18 @@ export function WolfGame({ wolf }: WolfGameProps) {
       toast.error(error);
     }
   }, [error]);
+
+  useEffect(() => {
+    if (!session || isLoading || pendingTransition || session.status === 'ended' || session.status === 'waiting') {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void nextAction();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [session, isLoading, pendingTransition, nextAction]);
 
   // 获取当前状态配置
   const getStatusConfig = (status: string) => {
@@ -394,24 +408,40 @@ export function WolfGame({ wolf }: WolfGameProps) {
               {/* 游戏进程控制 */}
               {session.status !== 'ended' ? (
                 <div className="flex gap-2">
-                  <Button
-                    onClick={nextAction}
-                    disabled={isLoading}
-                    className="flex-1"
-                    size="lg"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        {getLoadingText(currentMessageType)}
-                      </>
-                    ) : (
-                      <>
-                        {statusConfig.icon}
-                        <span className="ml-2">{getActionLabel()}</span>
-                      </>
-                    )}
-                  </Button>
+                  {pendingTransition ? (
+                    <Button onClick={continueTransition} disabled={isLoading} className="flex-1" size="lg">
+                      {pendingTransition === 'to_day' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                      <span className="ml-2">{pendingTransition === 'to_day' ? '进入白天' : '进入黑夜'}</span>
+                    </Button>
+                  ) : session.status === 'waiting' ? (
+                    <Button onClick={nextAction} disabled={isLoading} className="flex-1" size="lg">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {getLoadingText(currentMessageType)}
+                        </>
+                      ) : (
+                        <>
+                          {statusConfig.icon}
+                          <span className="ml-2">{getActionLabel()}</span>
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button disabled className="flex-1" size="lg">
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {getLoadingText(currentMessageType)}
+                        </>
+                      ) : (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          自动进行中...
+                        </>
+                      )}
+                    </Button>
+                  )}
                   <Button variant="outline" onClick={resetGame} disabled={isLoading}>
                     <RotateCcw className="w-4 h-4 mr-2" />
                     重置
@@ -891,21 +921,4 @@ function StreamingBubble({
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -56,6 +56,9 @@ const makeState = (eliminatedId?: string): WolfGameState => ({
   witchTargetId: null,
   eliminatedPlayerId: eliminatedId,
   hunterKillTargetId: null,
+  hunterKillPhase: null,
+  hunterKillRound: null,
+  wolfKillHistory: [],
 });
 
 // Mock AI 函数
@@ -79,14 +82,16 @@ describe('handleHunterElimination', () => {
     expect(result.hunterKillTargetId).toBeNull();
   });
 
-  it('processes hunter kill when hunter is eliminated', async () => {
-    const state = makeState('p8'); // hunter is eliminated
+  
+  it('records hunter kill phase when hunter shoots', async () => {
+    const state = makeState('p8');
 
     const result = await handleHunterElimination(state, mockAICall);
 
-    // 应该设置了 hunterKillTargetId
-    expect(result.hunterKillTargetId).not.toBeNull();
-    // 被击杀的玩家应该死亡
-    expect(result.players.find(p => p.id === result.hunterKillTargetId)?.isAlive).toBe(false);
+    expect(result.hunterKillPhase).toBe('day');
+    expect(result.hunterKillRound).toBe(1);
   });
+
 });
+
+

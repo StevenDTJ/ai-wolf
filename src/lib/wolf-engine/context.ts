@@ -17,11 +17,15 @@ export type GamePhase =
   | 'day_speech'
   | 'voting';
 
+// 公共时间线条目
+export type PublicTimelineItem = WolfMessage | WolfVote;
+
 // 公开信息
 export interface PublicInfo {
   speeches: WolfMessage[];
   votes: WolfVote[];
   systemBroadcasts: WolfMessage[];
+  timeline: PublicTimelineItem[];
 }
 
 // 私有信息
@@ -68,19 +72,25 @@ export function buildContext(
 
   // 公开信息 - 按 round→timestamp 排序
   const speeches = orderPublicInfo(
-    state.messages.filter(m => m.type === 'speech' || m.type === 'final_speech')
+    state.messages.filter(
+      m => (m.type === 'speech' || m.type === 'final_speech') && m.playerId !== 'system'
+    )
   );
-  const votes = orderPublicInfo(
-    state.votes.filter(v => v.round < state.currentRound)
-  );
+  const votes = orderPublicInfo(state.votes);
   const systemBroadcasts = orderPublicInfo(
-    state.messages.filter(m => m.type === 'inner_thought' && m.playerId === 'system')
+    state.messages.filter(m => m.playerId === 'system' && m.type === 'speech')
   );
+  const timeline = orderPublicInfo<PublicTimelineItem>([
+    ...speeches,
+    ...votes,
+    ...systemBroadcasts,
+  ]);
 
   const publicInfo: PublicInfo = {
     speeches,
     votes,
     systemBroadcasts,
+    timeline,
   };
 
   // 私有信息 - 根据角色决定
@@ -101,14 +111,20 @@ export function buildContext(
 
   if (role === 'werewolf') {
     privateInfo.wolfChats = state.wolfChatMessages;
-    // TODO: 添加刀人记录
+    privateInfo.wolfKills = state.wolfKillHistory;
   }
 
   // 猎人死亡提示（夜间或白天被淘汰时）
   if (role === 'hunter') {
     const hunter = state.players.find(p => p.role === 'hunter');
-    if (hunter && !hunter.isAlive) {
-      privateInfo.hunterPendingDeath = true;
+    if (hunter) {
+      const pendingDeath = !hunter.isAlive
+        || state.nightAction.killedId === hunter.id
+        || state.nightAction.poisonedId === hunter.id
+        || state.eliminatedPlayerId === hunter.id;
+      if (pendingDeath) {
+        privateInfo.hunterPendingDeath = true;
+      }
     }
   }
 
@@ -121,3 +137,9 @@ export function buildContext(
     currentRound: state.currentRound,
   };
 }
+
+
+
+
+
+

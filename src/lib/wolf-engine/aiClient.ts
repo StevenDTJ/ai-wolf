@@ -242,8 +242,8 @@ export async function generateWitchAction(
     {
       alivePlayers: alivePlayersStr,
       killedPlayer: killedPlayer ? `${killedPlayer.playerNumber}号 ${killedPlayer.name}` : '无人',
-      saveUsed: context.witchSaveUsed,
-      poisonUsed: context.witchPoisonUsed,
+      saveUsed: !!context.witchSaveUsed,
+      poisonUsed: !!context.witchPoisonUsed,
       night: context.currentRound,
     }
   );
@@ -273,12 +273,12 @@ export async function generateWitchAction(
       targetId = extractPlayerId(targetText || choiceText, context.alivePlayers, witch);
     }
 
-    if (decision === 'save' && (context.witchSaveUsed || !context.nightAction.killedId)) {
+    if (decision === 'save' && (!!context.witchSaveUsed || !context.nightAction.killedId)) {
       decision = 'none';
       targetId = null;
     }
 
-    if (decision === 'poison' && (context.witchPoisonUsed || !targetId)) {
+    if (decision === 'poison' && (!!context.witchPoisonUsed || !targetId)) {
       decision = 'none';
       targetId = null;
     }
@@ -299,7 +299,7 @@ export async function generateSeerAction(
     .map(p => `${p.playerNumber}号 ${p.name} (ID: ${p.id})`)
     .join('\n');
 
-  const checkHistoryStr = context.seerChecks
+  const checkHistoryStr = (context.seerChecks ?? [])
     .map(c => `${c.playerName}: ${c.result === 'good' ? '好人' : '狼人'}`)
     .join('\n') || '暂无';
 
@@ -367,14 +367,21 @@ export async function generateWerewolfChat(
     .map(p => `${p.playerNumber}号 ${p.name} (ID: ${p.id})`)
     .join('\n');
 
-  const nightInfo = context.nightAction.killedId
-    ? `昨晚刀了${context.players.find(p => p.id === context.nightAction.killedId)?.name}`
-    : '昨晚无人死亡';
+  const latestNightBroadcast = [...context.publicInfo.systemBroadcasts]
+    .reverse()
+    .find(message => message.content.includes('昨夜'));
+  const previousWolfKill = (context.privateInfo.wolfKills ?? [])
+    .slice()
+    .reverse()
+    .find(item => item.round === context.currentRound - 1);
+  const previousWolfTargetName = previousWolfKill
+    ? context.players.find(player => player.id === previousWolfKill.targetId)?.name || '某人'
+    : null;
+  const nightInfo = latestNightBroadcast?.content
+    || (previousWolfTargetName ? `昨夜狼人目标：${previousWolfTargetName}` : '暂无昨夜信息');
 
-      const lastKilledId = context.nightAction.killedId || context.nightAction.poisonedId;
-    const chatHistoryStr = lastKilledId
-      ? `昨晚死亡：${context.players.find(p => p.id === lastKilledId)?.name || '某人'}`
-      : '暂无';
+  const chatHistoryStr = context.chatHistory || '暂无';
+
   const prompt = getWolfChatPrompt(
     { name: werewolf.name },
     {
@@ -560,9 +567,10 @@ export async function generateFinalSpeech(
     .map(c => `${c.playerName}: ${c.result === 'good' ? '好人' : '狼人'}`)
     .join('\n') || '暂无';
 
-  const gameSituation = `存活玩家：${alivePlayersStr}
-预言家查验：${seerChecksStr}`;
-
+  const seerSummary = player.role === 'seer'
+    ? `\n预言家查验：${seerChecksStr}`
+    : '';
+  const gameSituation = `存活玩家：${alivePlayersStr}${seerSummary}`;
   const prompt = getFinalSpeechPrompt(
     { name: player.name, role: player.role },
     { gameSituation }
@@ -586,14 +594,5 @@ export {
   callAI,
   callAIStream,
 };
-
-
-
-
-
-
-
-
-
 
 

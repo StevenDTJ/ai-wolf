@@ -4,6 +4,26 @@ import { WolfGameState } from './types';
 import { WolfPlayer, WolfMessage } from '@/types';
 
 describe('broadcasts', () => {
+  it('builds night broadcast with all deaths without cause', () => {
+    const mockState: Partial<WolfGameState> = {
+      players: basePlayers as any,
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: 'player-3',
+        healedId: null,
+        poisonedId: null,
+      },
+      currentRound: 1,
+    };
+
+    const msg = buildNightBroadcast(mockState as WolfGameState);
+    expect(msg.content).toContain('昨夜死亡');
+    expect(msg.content).not.toContain('被刀');
+    expect(msg.content).not.toContain('被毒');
+  });
+
   const basePlayers: WolfPlayer[] = [
     {
       id: 'player-1',
@@ -46,31 +66,35 @@ describe('broadcasts', () => {
     },
   ];
 
-  it('builds night broadcast with all deaths without cause', () => {
+  
+  it('includes night hunter kill in death list', () => {
     const mockState: Partial<WolfGameState> = {
       players: basePlayers as any,
       nightAction: {
         protectedId: null,
         checkedId: null,
         checkResult: null,
-        killedId: 'player-3', // 猎人被刀
+        killedId: null,
         healedId: null,
         poisonedId: null,
       },
+      hunterKillTargetId: 'player-2',
+      hunterKillPhase: 'night',
+      hunterKillRound: 1,
       currentRound: 1,
     };
 
     const msg = buildNightBroadcast(mockState as WolfGameState);
-    expect(msg.content).toContain('昨夜死亡');
-    // 死亡列表不应标注死因
-    expect(msg.content).not.toContain('被刀');
-    expect(msg.content).not.toContain('被毒');
+    expect(msg.content).toContain('玩家2');
   });
+
 
   it('builds day vote broadcast with hunter kill info', () => {
     const mockState: Partial<WolfGameState> = {
       players: basePlayers as any,
       hunterKillTargetId: 'player-2',
+      hunterKillPhase: 'day',
+      hunterKillRound: 1,
       currentRound: 1,
     };
 
@@ -79,3 +103,5 @@ describe('broadcasts', () => {
     expect(msg.content).toContain('猎人带走');
   });
 });
+
+

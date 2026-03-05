@@ -3,3 +3,4 @@ export * from './types';
 export * from './gameLogic';
 export * from './aiClient';
 export * from './prompts';
+export * from './invariants';

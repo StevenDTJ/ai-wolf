@@ -1,22 +1,23 @@
-// 狼人杀游戏引擎 - 核心逻辑
+﻿// 狼人杀游戏引擎 - 核心逻辑
 import { v4 as uuidv4 } from 'uuid';
 import { WolfPlayer, WolfRole, WolfMessage, WolfGameStatus } from '@/types';
 import { WolfGameState, WolfNightAction, WolfVoteResult } from './types';
 
-// 角色分配：6人局 = 2狼人 + 2村民 + 1预言家 + 1守卫
-const ROLES: WolfRole[] = ['werewolf', 'werewolf', 'villager', 'villager', 'seer', 'guardian'];
+// 角色分配：8人局 = 2狼人 + 3村民 + 1预言家 + 1女巫 + 1猎人
+const ROLES: WolfRole[] = ['werewolf', 'werewolf', 'villager', 'villager', 'villager', 'seer', 'witch', 'hunter'];
 
 // 角色显示名称映射（用于提示词和UI）
 export const ROLE_INFO: Record<WolfRole, { label: string; icon: string; isEvil: boolean }> = {
   villager: { label: '村民', icon: '👤', isEvil: false },
   werewolf: { label: '狼人', icon: '🐺', isEvil: true },
   seer: { label: '预言家', icon: '🔮', isEvil: false },
-  guardian: { label: '守卫', icon: '🛡️', isEvil: false },
+  witch: { label: '女巫', icon: '🧪', isEvil: false },
+  hunter: { label: '猎人', icon: '🏹', isEvil: false },
 };
 
 // 获取场上存活的角色类型列表
-export function getAliveRoleTypes(state: WolfGameState): string {
-  const aliveRoles = getAlivePlayers(state).map(p => p.role);
+export function getAliveRoleTypes(players: WolfPlayer[]): string {
+  const aliveRoles = players.map(p => p.role);
   const uniqueRoles = [...new Set(aliveRoles)];
   return uniqueRoles.map(r => ROLE_INFO[r]?.label || r).join('、');
 }
@@ -29,6 +30,7 @@ function createInitialNightAction(): WolfNightAction {
     checkResult: null,
     killedId: null,
     healedId: null,
+    poisonedId: null,
   };
 }
 
@@ -44,7 +46,7 @@ function shuffleRoles(): WolfRole[] {
 
 // 生成系统提示词
 function generateSystemPrompt(player: WolfPlayer): string {
-  const rolePrompts: Record<WolfRole, string> = {
+    const rolePrompts: Record<WolfRole, string> = {
     villager: `你是${player.name}，身份是村民（好人）。
 
 游戏目标：找出并投出所有狼人
@@ -75,16 +77,24 @@ function generateSystemPrompt(player: WolfPlayer): string {
 - 报出查验结果，给好人信息
 - 规划警徽流
 - 保护自己`,
-    guardian: `你是${player.name}，身份是守卫。
+    witch: `你是${player.name}，身份是女巫。
 
-游戏目标：保护好人阵营
-你的任务：守对关键玩家
+游戏目标：帮助好人阵营获胜
+你的任务：在夜晚使用解药/毒药做出关键决策
 
 发言策略：
-- 可以适当跳身份寻求信任
-- 记录每晚守护的人
-- 不要过度暴露身份
-- 关键时刻可以明跳`,
+- 观察局势，决定是否用药
+- 关键时刻可以跳身份
+- 注意药品只各一次`,
+    hunter: `你是${player.name}，身份是猎人。
+
+游戏目标：帮助好人阵营获胜
+你的任务：被投票或被夜晚击杀后，可带走一名玩家
+
+发言策略：
+- 适当隐藏身份
+- 关键时刻再跳身份
+- 观察谁更像狼人`,
   };
 
   return rolePrompts[player.role];
@@ -126,6 +136,10 @@ export function createWolfGame(players: WolfPlayer[]): WolfGameState {
     currentWolfChatPlayerIndex: 0,
     lastProtectedId: null,
     seerChecks: [],
+    witchSaveUsed: false,
+    witchPoisonUsed: false,
+    witchDecision: 'none',
+    witchTargetId: null,
   };
 }
 
@@ -144,26 +158,26 @@ export function getSeer(state: WolfGameState): WolfPlayer | undefined {
   return state.players.find(p => p.role === 'seer' && p.isAlive);
 }
 
-// 获取守卫
-export function getGuardian(state: WolfGameState): WolfPlayer | undefined {
-  return state.players.find(p => p.role === 'guardian' && p.isAlive);
+// 获取女巫
+export function getWitch(state: WolfGameState): WolfPlayer | undefined {
+  return state.players.find(p => p.role === 'witch' && p.isAlive);
 }
 
 // 开始游戏
 export function startWolfGame(state: WolfGameState): WolfGameState {
   return {
     ...state,
-    status: 'night',
+    status: 'night_werewolf',
     currentRound: 1,
   };
 }
-
-// 进入守卫行动阶段
-export function startGuardianNight(state: WolfGameState): WolfGameState {
+// 进入女巫行动阶段
+export function startWitchNight(state: WolfGameState): WolfGameState {
   return {
     ...state,
-    status: 'night_guardian',
-    nightAction: createInitialNightAction(),
+    status: 'night_witch',
+    witchDecision: 'none',
+    witchTargetId: null,
   };
 }
 
@@ -175,6 +189,28 @@ export function startSeerNight(state: WolfGameState): WolfGameState {
   };
 }
 
+// 处理预言家查验
+export function processSeerCheck(
+  state: WolfGameState,
+  checkedId: string,
+  isWolf: boolean
+): WolfGameState {
+  const checkedPlayer = state.players.find(p => p.id === checkedId);
+  const result: 'good' | 'evil' = isWolf ? 'evil' : 'good';
+
+  return {
+    ...state,
+    nightAction: {
+      ...state.nightAction,
+      checkedId,
+      checkResult: result,
+    },
+    seerChecks: checkedPlayer
+      ? [...state.seerChecks, { playerId: checkedId, playerName: checkedPlayer.name, result }]
+      : state.seerChecks,
+  };
+}
+
 // 进入狼人行动阶段
 export function startWerewolfNight(state: WolfGameState): WolfGameState {
   return {
@@ -182,7 +218,6 @@ export function startWerewolfNight(state: WolfGameState): WolfGameState {
     status: 'night_werewolf',
   };
 }
-
 // 进入狼人密聊阶段
 export function startWerewolfChat(state: WolfGameState): WolfGameState {
   const wolves = getWolfPlayers(state);
@@ -194,49 +229,39 @@ export function startWerewolfChat(state: WolfGameState): WolfGameState {
   };
 }
 
-// 处理守卫守护
-export function processGuardianProtect(state: WolfGameState, protectedId: string | null): WolfGameState {
-  return {
-    ...state,
-    nightAction: {
-      ...state.nightAction,
-      protectedId,
-    },
-    lastProtectedId: state.nightAction.protectedId,
-  };
-}
+// 处理女巫用药
+export function processWitchDecision(
+  state: WolfGameState,
+  decision: 'save' | 'poison' | 'none',
+  targetId: string | null
+): WolfGameState {
+  const killedId = state.nightAction.killedId;
+  let resolvedDecision: 'save' | 'poison' | 'none' = decision;
+  let witchSaveUsed = state.witchSaveUsed;
+  let witchPoisonUsed = state.witchPoisonUsed;
+  let healedId: string | null = null;
+  let poisonedId: string | null = null;
 
-// 处理预言家验人
-export function processSeerCheck(state: WolfGameState, checkedId: string, isWolf: boolean): WolfGameState {
-  const checkedPlayer = state.players.find(p => p.id === checkedId);
-  return {
-    ...state,
-    nightAction: {
-      ...state.nightAction,
-      checkedId,
-      checkResult: isWolf ? 'evil' : 'good',
-    },
-    seerChecks: [
-      ...state.seerChecks,
-      {
-        playerId: checkedId,
-        playerName: checkedPlayer?.name || '',
-        result: isWolf ? 'evil' : 'good',
-      },
-    ],
-  };
-}
+  if (decision === 'save') {
+    if (!witchSaveUsed && killedId) {
+      healedId = killedId;
+      witchSaveUsed = true;
+    } else {
+      resolvedDecision = 'none';
+    }
+  } else if (decision === 'poison') {
+    if (!witchPoisonUsed && targetId) {
+      poisonedId = targetId;
+      witchPoisonUsed = true;
+    } else {
+      resolvedDecision = 'none';
+    }
+  }
 
-// 处理狼人刀人
-export function processWerewolfKill(state: WolfGameState, killedId: string | null): WolfGameState {
-  // 如果有守卫保护，则不死
-  const wasProtected = state.nightAction.protectedId === killedId;
+  const finalKilledId = resolvedDecision === 'save' ? null : killedId;
 
-  let finalKilledId = killedId;
-
-  // 更新被杀玩家状态
   const updatedPlayers = state.players.map(p => {
-    if (p.id === killedId && !wasProtected) {
+    if (p.id === finalKilledId || p.id === poisonedId) {
       return { ...p, isAlive: false };
     }
     return p;
@@ -247,8 +272,14 @@ export function processWerewolfKill(state: WolfGameState, killedId: string | nul
     players: updatedPlayers,
     nightAction: {
       ...state.nightAction,
-      killedId: wasProtected ? null : killedId,
+      killedId: finalKilledId,
+      healedId,
+      poisonedId,
     },
+    witchSaveUsed,
+    witchPoisonUsed,
+    witchDecision: resolvedDecision,
+    witchTargetId: targetId ?? null,
   };
 }
 
@@ -334,6 +365,19 @@ export function resolveWolfKill(state: WolfGameState): string | null {
   return maxTarget;
 }
 
+
+// 处理狼人击杀（只记录目标，真正生效在女巫阶段）
+export function processWerewolfKill(state: WolfGameState, targetId: string | null): WolfGameState {
+  return {
+    ...state,
+    nightAction: {
+      ...state.nightAction,
+      killedId: targetId,
+      healedId: null,
+      poisonedId: null,
+    },
+  };
+}
 // 进入白天
 export function startDay(state: WolfGameState): WolfGameState {
   return {
@@ -400,8 +444,8 @@ export function checkWinCondition(state: WolfGameState): 'good' | 'evil' | null 
   const alivePlayers = getAlivePlayers(state);
   const wolves = alivePlayers.filter(p => p.role === 'werewolf');
   const seer = alivePlayers.find(p => p.role === 'seer');
-  const guardian = alivePlayers.find(p => p.role === 'guardian');
-  const hasGod = seer || guardian;
+  const witch = alivePlayers.find(p => p.role === 'witch');
+  const hunter = alivePlayers.find(p => p.role === 'hunter');
 
   // 狼人全部死亡 -> 好人胜利
   if (wolves.length === 0) {
@@ -410,7 +454,7 @@ export function checkWinCondition(state: WolfGameState): 'good' | 'evil' | null 
 
   // 屠边：杀光所有村民 或 杀光所有神职
   const villagers全部死亡 = !alivePlayers.some(p => p.role === 'villager');
-  const 神职全部死亡 = !seer && !guardian;
+  const 神职全部死亡 = !seer && !witch && !hunter;
 
   if (villagers全部死亡 || 神职全部死亡) {
     return 'evil';
@@ -424,7 +468,10 @@ export function startNextRound(state: WolfGameState): WolfGameState {
   return {
     ...state,
     currentRound: state.currentRound + 1,
-    status: 'night',
+    status: 'night_werewolf',
+    nightAction: createInitialNightAction(),
+    witchDecision: 'none',
+    witchTargetId: null,
     eliminatedPlayerId: undefined,
     // 保留之前的游戏记录，只清空本轮的投票数据
     votes: [],
@@ -436,3 +483,21 @@ export function startNextRound(state: WolfGameState): WolfGameState {
 export function resetWolfGame(): WolfGameState | null {
   return null;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

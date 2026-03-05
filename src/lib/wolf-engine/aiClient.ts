@@ -3,8 +3,8 @@ import { WolfPlayer, WolfMessage } from '@/types';
 import { NightContext, DaySpeechContext } from './types';
 import { getAliveRoleTypes } from './gameLogic';
 import {
-  getGuardianPrompt,
   getSeerPrompt,
+  getWitchPrompt,
   getDaySpeechPrompt,
   getWolfChatPrompt,
   getVotePrompt,
@@ -15,7 +15,7 @@ import {
 
 // 夜晚行动结果
 export interface NightActionResult {
-  type: 'guardian' | 'seer' | 'werewolf_kill' | 'werewolf_chat';
+  type: 'witch' | 'seer' | 'werewolf_kill' | 'werewolf_chat';
   playerId: string;
   content: string;
   targetId?: string;
@@ -224,70 +224,71 @@ function extractPlayerId(
 
 // ==================== 夜晚行动 AI ====================
 
-// 守卫守护
-export async function generateGuardianAction(
-  guardian: WolfPlayer,
+// 女巫行动
+export async function generateWitchAction(
+  witch: WolfPlayer,
   context: NightContext
-): Promise<{ protectedId: string | null; reasoning: string }> {
+): Promise<{ decision: 'save' | 'poison' | 'none'; targetId: string | null; reasoning: string }> {
   const alivePlayersStr = context.alivePlayers
     .map(p => `${p.playerNumber}号 ${p.name} (ID: ${p.id})`)
     .join('\n');
 
-  const prompt = getGuardianPrompt(
-    { name: guardian.name, playerNumber: guardian.playerNumber },
+  const killedPlayer = context.nightAction.killedId
+    ? context.players.find(p => p.id === context.nightAction.killedId)
+    : null;
+
+  const prompt = getWitchPrompt(
+    { name: witch.name, playerNumber: witch.playerNumber },
     {
       alivePlayers: alivePlayersStr,
-      lastProtected: context.lastProtectedId
-        ? context.players.find(p => p.id === context.lastProtectedId)?.name || '无'
-        : '无',
+      killedPlayer: killedPlayer ? `${killedPlayer.playerNumber}号 ${killedPlayer.name}` : '无人',
+      saveUsed: context.witchSaveUsed,
+      poisonUsed: context.witchPoisonUsed,
       night: context.currentRound,
     }
   );
 
   try {
-    const response = await callAI(guardian, prompt, 0.7);
+    const response = await callAI(witch, prompt, 0.7);
 
-    // 解析响应 - 提取理由和选择
     const reasoningMatch = response.match(/理由[：:]\s*(.+?)(?:\n|$)/i);
     const choiceMatch = response.match(/选择[：:]\s*(.+?)(?:\n|$)/i);
+    const targetMatch = response.match(/目标[：:]\s*(.+?)(?:\n|$)/i);
 
-    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : response.slice(0, 100);
-    const choiceText = choiceMatch ? choiceMatch[1].trim() : response;
+    const reasoning = reasoningMatch ? reasoningMatch[1].trim() : '';
+    const choiceText = (choiceMatch ? choiceMatch[1] : response).trim();
+    const targetText = targetMatch ? targetMatch[1].trim() : '';
 
-    // 解析选择
-    let protectedId: string | null = null;
-
-    // 检查是否选择不守护
-    if (/不守护|空过|弃权|无|null/i.test(choiceText)) {
-      protectedId = null;
-    } else {
-      protectedId = extractPlayerId(choiceText, context.alivePlayers, guardian);
+    let decision: 'save' | 'poison' | 'none' = 'none';
+    if (/救|解药/i.test(choiceText)) {
+      decision = 'save';
+    } else if (/毒/i.test(choiceText)) {
+      decision = 'poison';
     }
 
-    // 不能连续守护同一人
-    if (protectedId === context.lastProtectedId) {
-      protectedId = null;
+    let targetId: string | null = null;
+    if (decision === 'save') {
+      targetId = context.nightAction.killedId || null;
+    } else if (decision === 'poison') {
+      targetId = extractPlayerId(targetText || choiceText, context.alivePlayers, witch);
     }
 
-    return {
-      protectedId,
-      reasoning: reasoning || `守护了 ${protectedId ? context.players.find(p => p.id === protectedId)?.name || '某人' : '无人'}`,
-    };
+    if (decision === 'save' && (context.witchSaveUsed || !context.nightAction.killedId)) {
+      decision = 'none';
+      targetId = null;
+    }
+
+    if (decision === 'poison' && (context.witchPoisonUsed || !targetId)) {
+      decision = 'none';
+      targetId = null;
+    }
+
+    return { decision, targetId, reasoning };
   } catch (err) {
-    console.error('守卫AI调用失败:', err);
-    // 随机选择一个
-    const validTargets = context.alivePlayers.filter(
-      p => p.id !== guardian.id && p.id !== context.lastProtectedId
-    );
-    return {
-      protectedId: validTargets.length > 0
-        ? validTargets[Math.floor(Math.random() * validTargets.length)].id
-        : null,
-      reasoning: 'AI调用失败，随机选择',
-    };
+    console.error('女巫AI调用失败:', err);
+    return { decision: 'none', targetId: null, reasoning: '' };
   }
 }
-
 // 预言家验人
 export async function generateSeerAction(
   seer: WolfPlayer,
@@ -370,10 +371,10 @@ export async function generateWerewolfChat(
     ? `昨晚刀了${context.players.find(p => p.id === context.nightAction.killedId)?.name}`
     : '昨晚无人死亡';
 
-  const chatHistoryStr = context.nightAction.protectedId
-    ? `守卫守护了${context.players.find(p => p.id === context.nightAction.protectedId)?.name || '某人'}`
-    : '暂无';
-
+      const lastKilledId = context.nightAction.killedId || context.nightAction.poisonedId;
+    const chatHistoryStr = lastKilledId
+      ? `昨晚死亡：${context.players.find(p => p.id === lastKilledId)?.name || '某人'}`
+      : '暂无';
   const prompt = getWolfChatPrompt(
     { name: werewolf.name },
     {
@@ -423,10 +424,11 @@ export async function generateDaySpeech(
     .map(p => `${p.playerNumber}号 ${p.name}`)
     .join('、');
 
-  const lastKilled = context.nightAction.killedId
-    ? context.players.find(p => p.id === context.nightAction.killedId)?.name || '某人'
-    : '无人';
-
+      const deadIds = [context.nightAction.killedId, context.nightAction.poisonedId]
+      .filter((id): id is string => !!id);
+    const lastKilled = deadIds.length > 0
+      ? deadIds.map(id => context.players.find(p => p.id === id)?.name || '某人').join('、')
+      : '无人';
   // 获取狼人队友信息（用于提示词）
   let teammatesStr = '无';
   if (player.role === 'werewolf') {
@@ -442,18 +444,11 @@ export async function generateDaySpeech(
     const checkedPlayer = context.players.find(p => p.id === context.nightAction.checkedId);
     systemPrompt += `\n【重要】你昨晚查验了${checkedPlayer?.name || '某人'}，结果是${context.nightAction.checkResult === 'good' ? '好人' : '狼人'}。`;
   }
-
-  // 为守卫添加守护信息
-  if (player.role === 'guardian' && context.nightAction.protectedId) {
-    const protectedPlayer = context.players.find(p => p.id === context.nightAction.protectedId);
-    systemPrompt += `\n【重要】你昨晚守护了${protectedPlayer?.name || '某人'}。`;
-  }
-
-  const prompt = getDaySpeechPrompt(
+const prompt = getDaySpeechPrompt(
     { name: player.name, role: player.role, teammates: teammatesStr },
     {
       alivePlayers: alivePlayersStr,
-      aliveRoleTypes: getAliveRoleTypes({ players: context.alivePlayers } as any),
+      aliveRoleTypes: getAliveRoleTypes(context.alivePlayers),
       lastKilled,
       round: context.currentRound,
     }
@@ -492,7 +487,7 @@ export async function generateVoteDecision(
     { name: player.name, role: player.role },
     {
       alivePlayers: alivePlayersStr,
-      aliveRoleTypes: getAliveRoleTypes({ players: context.alivePlayers } as any),
+      aliveRoleTypes: getAliveRoleTypes(context.alivePlayers),
       speeches: speechesStr,
     }
   );
@@ -591,3 +586,14 @@ export {
   callAI,
   callAIStream,
 };
+
+
+
+
+
+
+
+
+
+
+

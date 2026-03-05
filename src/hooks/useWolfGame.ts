@@ -13,10 +13,11 @@ import {
   startWolfGame,
   startSeerNight,
   startWerewolfNight,
+  startWitchNight,
   startWerewolfChat,
   startDay,
-  processGuardianProtect,
   processSeerCheck,
+  processWitchDecision,
   processWerewolfKill,
   eliminatePlayer,
   processVotingResults,
@@ -25,10 +26,10 @@ import {
   getAlivePlayers,
   getWolfPlayers,
   getSeer,
-  getGuardian,
+  getWitch,
 } from '@/lib/wolf-engine';
 import {
-  generateGuardianAction,
+  generateWitchAction,
   generateSeerAction,
   generateWerewolfChat,
   generateDaySpeech,
@@ -90,6 +91,8 @@ function buildNightContext(state: WolfGameState) {
     nightAction: state.nightAction,
     seerChecks: state.seerChecks,
     lastProtectedId: state.lastProtectedId,
+    witchSaveUsed: state.witchSaveUsed,
+    witchPoisonUsed: state.witchPoisonUsed,
   };
 }
 
@@ -98,7 +101,7 @@ function buildDayContext(state: WolfGameState): {
   currentRound: number;
   players: WolfPlayer[];
   alivePlayers: WolfPlayer[];
-  nightAction: { protectedId: string | null; checkedId: string | null; checkResult: 'good' | 'evil' | null; killedId: string | null; healedId: string | null };
+  nightAction: { protectedId: string | null; checkedId: string | null; checkResult: 'good' | 'evil' | null; killedId: string | null; healedId: string | null; poisonedId: string | null };
   seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
   previousSpeeches: WolfMessage[];
 } {
@@ -121,7 +124,7 @@ export interface UseWolfGameReturn {
   isLoading: boolean;
   error: string | null;
   currentStreamingContent: string;
-  currentMessageType: 'inner_thought' | 'speech' | 'wolf_chat' | 'guardian_action' | 'seer_action';
+  currentMessageType: 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'seer_action';
   votes: WolfVote[];
   votingResults: Record<string, number>;
   currentSpeakerIndex: number;
@@ -149,7 +152,7 @@ export function useWolfGame(): UseWolfGameReturn {
 
   // 流式输出
   const [currentStreamingContent, setCurrentStreamingContent] = useState('');
-  const [currentMessageType, setCurrentMessageType] = useState<'inner_thought' | 'speech' | 'wolf_chat' | 'guardian_action' | 'seer_action'>('speech');
+  const [currentMessageType, setCurrentMessageType] = useState<'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'seer_action'>('speech');
 
   // 投票相关
   const [votes, setVotes] = useState<WolfVote[]>([]);
@@ -172,7 +175,7 @@ export function useWolfGame(): UseWolfGameReturn {
 
   // 添加玩家
   const addPlayer = useCallback((player: WolfPlayer) => {
-    if (players.length >= 6) return;
+    if (players.length >= 8) return;
     const newPlayer = { ...player, playerNumber: players.length + 1 };
     savePlayers([...players, newPlayer]);
   }, [players, savePlayers]);
@@ -191,8 +194,8 @@ export function useWolfGame(): UseWolfGameReturn {
 
   // 初始化游戏
   const initGame = useCallback(() => {
-    if (players.length !== 6) {
-      setError('需要6名玩家才能开始游戏');
+    if (players.length !== 8) {
+      setError('需要8名玩家才能开始游戏');
       return;
     }
     const game = createWolfGame(players);
@@ -231,10 +234,8 @@ export function useWolfGame(): UseWolfGameReturn {
           break;
         }
 
-        case 'night':
-        case 'night_guardian': {
-          // 守卫行动
-          await handleGuardianNight(currentSession);
+        case 'night': {
+          setSession(startWerewolfNight(currentSession));
           break;
         }
 
@@ -253,6 +254,11 @@ export function useWolfGame(): UseWolfGameReturn {
         case 'werewolf_chat': {
           // 狼人密聊
           await handleWerewolfChat(currentSession);
+          break;
+        }
+
+        case 'night_witch': {
+          await handleWitchNight(currentSession);
           break;
         }
 
@@ -284,59 +290,79 @@ export function useWolfGame(): UseWolfGameReturn {
       abortControllerRef.current = null;
     }
   }, [isLoading]);
+  function addNightDeathSummary(state: WolfGameState): WolfGameState {
+    const deadIds = [state.nightAction.killedId, state.nightAction.poisonedId]
+      .filter((id): id is string => !!id);
+    const uniqueIds = Array.from(new Set(deadIds));
 
-  // 守卫夜晚（添加系统反馈）
-  async function handleGuardianNight(state: WolfGameState) {
-    const guardian = getGuardian(state);
-
-    if (!guardian || !guardian.isAlive) {
-      // 守卫已死，跳过
-      setSession(startSeerNight(state));
-      return;
+    let content = '天亮了，昨夜无人死亡';
+    if (uniqueIds.length > 0) {
+      const names = uniqueIds
+        .map(id => state.players.find(p => p.id === id)?.name || '某人')
+        .join('、');
+      content = `天亮了，昨夜死亡：${names}`;
     }
 
-    setCurrentMessageType('guardian_action');
-    setCurrentStreamingContent('守卫正在选择守护目标...');
-
-    const context = buildNightContext(state);
-    const result = await generateGuardianAction(guardian, context);
-
-    let newState = processGuardianProtect(state, result.protectedId);
-
-    // 更新被守护玩家的 wasProtected 状态
-    if (result.protectedId) {
-      newState = {
-        ...newState,
-        players: newState.players.map(p =>
-          p.id === result.protectedId
-            ? { ...p, wasProtected: true }
-            : p
-        ),
-      };
-    }
-
-    // 添加守卫的决策理由（仅观众可见）
-    const guardReasonMsg: WolfMessage = {
+    const msg: WolfMessage = {
       id: uuidv4(),
-      playerId: guardian.id,
-      playerName: guardian.name,
-      content: result.reasoning || '（守卫正在思考...）',
+      playerId: 'system',
+      playerName: '系统',
+      content,
       type: 'inner_thought',
       round: state.currentRound,
       timestamp: Date.now(),
     };
 
-    // 添加系统反馈（仅观众可见）
-    const protectedPlayer = result.protectedId
-      ? state.players.find(p => p.id === result.protectedId)
+    return {
+      ...state,
+      messages: [...state.messages, msg],
+    };
+  }
+
+  async function handleWitchNight(state: WolfGameState) {
+    const witch = getWitch(state);
+
+    if (!witch || !witch.isAlive) {
+      const dayState = addNightDeathSummary(startDay(state));
+      setSession(dayState);
+      return;
+    }
+
+    setCurrentMessageType('witch_action');
+    setCurrentStreamingContent('女巫正在决策...');
+
+    const context = buildNightContext(state);
+    const result = await generateWitchAction(witch, context);
+
+    let newState = processWitchDecision(state, result.decision, result.targetId);
+
+    const killedPlayer = state.nightAction.killedId
+      ? state.players.find(p => p.id === state.nightAction.killedId)
       : null;
-    const guardMsg: WolfMessage = {
+
+    const reasoningMsg: WolfMessage = {
+      id: uuidv4(),
+      playerId: witch.id,
+      playerName: witch.name,
+      content: result.reasoning || '（女巫正在思考...）',
+      type: 'inner_thought',
+      round: state.currentRound,
+      timestamp: Date.now(),
+    };
+
+    let decisionText = '选择不用药';
+    if (result.decision === 'save') {
+      decisionText = `使用解药救了 ${killedPlayer?.name || '被刀玩家'}`;
+    } else if (result.decision === 'poison') {
+      const poisonTarget = result.targetId ? state.players.find(p => p.id === result.targetId) : null;
+      decisionText = `使用毒药毒了 ${poisonTarget?.name || '某人'}`;
+    }
+
+    const systemMsg: WolfMessage = {
       id: uuidv4(),
       playerId: 'system',
       playerName: '系统',
-      content: protectedPlayer
-        ? `【观众视角】守卫守护了 ${protectedPlayer.name}`
-        : '【观众视角】守卫选择不守护任何人',
+      content: `【观众视角】今晚被刀：${killedPlayer?.name || '无人'}；女巫${decisionText}`,
       type: 'inner_thought',
       round: state.currentRound,
       timestamp: Date.now(),
@@ -344,7 +370,7 @@ export function useWolfGame(): UseWolfGameReturn {
 
     newState = {
       ...newState,
-      messages: [...newState.messages, guardReasonMsg, guardMsg],
+      messages: [...newState.messages, reasoningMsg, systemMsg],
     };
 
     newState = startSeerNight(newState);
@@ -353,12 +379,12 @@ export function useWolfGame(): UseWolfGameReturn {
     setCurrentStreamingContent('');
   }
 
-  // 预言家夜晚（添加验人反馈）
   async function handleSeerNight(state: WolfGameState) {
     const seer = getSeer(state);
 
     if (!seer || !seer.isAlive) {
-      setSession(startWerewolfNight(state));
+      const dayState = addNightDeathSummary(startDay(state));
+      setSession(dayState);
       return;
     }
 
@@ -373,7 +399,6 @@ export function useWolfGame(): UseWolfGameReturn {
 
     let newState = processSeerCheck(state, result.checkedId, isWolf);
 
-    // 添加预言家的决策理由（仅观众可见）
     const seerReasonMsg: WolfMessage = {
       id: uuidv4(),
       playerId: seer.id,
@@ -384,7 +409,6 @@ export function useWolfGame(): UseWolfGameReturn {
       timestamp: Date.now(),
     };
 
-    // 添加系统反馈（仅观众可见）
     const seerMsg: WolfMessage = {
       id: uuidv4(),
       playerId: 'system',
@@ -400,25 +424,21 @@ export function useWolfGame(): UseWolfGameReturn {
       messages: [...newState.messages, seerReasonMsg, seerMsg],
     };
 
-    newState = startWerewolfNight(newState);
+    newState = addNightDeathSummary(startDay(newState));
 
     setSession(newState);
     setCurrentStreamingContent('');
   }
 
-  // 狼人密聊
   async function handleWerewolfChat(state: WolfGameState) {
     const wolves = getWolfPlayers(state);
     const context = buildNightContext(state);
 
-    // 狼人密聊最大轮数
     const MAX_CHAT_ROUNDS = 2;
-    let chatMessages: WolfMessage[] = [];
-    let allKillVotes: Array<{ playerId: string; targetId: string | null }> = [];
+    const chatMessages: WolfMessage[] = [];
+    const allKillVotes: Array<{ playerId: string; targetId: string | null }> = [];
 
-    // 狼人密聊多轮讨论
     for (let round = 0; round < MAX_CHAT_ROUNDS; round++) {
-      // 构建包含之前讨论历史的上下文
       const chatHistoryStr = chatMessages
         .map(m => `${m.playerName}：${m.content.slice(0, 100)}`)
         .join('\n');
@@ -428,7 +448,6 @@ export function useWolfGame(): UseWolfGameReturn {
         chatHistory: chatHistoryStr,
       };
 
-      // 让每个狼人发言
       for (const wolf of wolves) {
         setCurrentMessageType('wolf_chat');
         setCurrentStreamingContent(`${wolf.name}正在密聊...（第${round + 1}轮）`);
@@ -447,7 +466,6 @@ export function useWolfGame(): UseWolfGameReturn {
 
         chatMessages.push(msg);
 
-        // 提取刀人目标
         const killTarget = result.message.match(/(\d+)号/)?.[1];
         let targetId: string | null = null;
 
@@ -462,28 +480,23 @@ export function useWolfGame(): UseWolfGameReturn {
         allKillVotes.push({ playerId: wolf.id, targetId });
       }
 
-      // 检查当前轮次的投票情况
       const currentRoundVotes = allKillVotes.slice(-wolves.length);
       const voteTargets = currentRoundVotes
         .map(v => v.targetId)
         .filter((v): v is string => v !== null);
 
-      // 统计票数
       const voteCount: Record<string, number> = {};
       voteTargets.forEach(t => {
         voteCount[t] = (voteCount[t] || 0) + 1;
       });
 
-      // 检查是否达成共识（某一目标超过半数）
       const totalWolves = wolves.length;
       const hasConsensus = Object.values(voteCount).some(count => count > totalWolves / 2);
 
       if (hasConsensus || round === MAX_CHAT_ROUNDS - 1) {
-        // 达成共识或已达最大轮数，结束讨论
         break;
       }
 
-      // 添加系统提示，引导下一轮讨论
       const disagreementMsg: WolfMessage = {
         id: uuidv4(),
         playerId: 'system',
@@ -496,7 +509,6 @@ export function useWolfGame(): UseWolfGameReturn {
       chatMessages.push(disagreementMsg);
     }
 
-    // 统计最终刀人目标（使用所有轮次的投票）
     const voteCount: Record<string, number> = {};
     allKillVotes.forEach(v => {
       if (v.targetId) {
@@ -504,7 +516,6 @@ export function useWolfGame(): UseWolfGameReturn {
       }
     });
 
-    // 找票数最多的
     let maxVotes = 0;
     let killTargetId: string | null = null;
     for (const [targetId, count] of Object.entries(voteCount)) {
@@ -514,7 +525,6 @@ export function useWolfGame(): UseWolfGameReturn {
       }
     }
 
-    // 如果没有有效目标，随机选择
     if (!killTargetId) {
       const validTargets = getAlivePlayers(state).filter(
         p => !wolves.some(w => w.id === p.id)
@@ -526,28 +536,19 @@ export function useWolfGame(): UseWolfGameReturn {
 
     let newState = processWerewolfKill(state, killTargetId);
 
-    // 添加所有密聊消息
     newState = {
       ...newState,
       wolfChatMessages: chatMessages,
       messages: [...newState.messages, ...chatMessages],
     };
 
-    // 从 newState 获取实际的击杀结果（考虑守卫保护）
-    const actualKilledId = newState.nightAction.killedId;
-    const victim = actualKilledId ? newState.players.find(p => p.id === actualKilledId) : null;
-
-    // 添加刀人目标反馈（仅观众可见）
     const intendedVictim = killTargetId ? state.players.find(p => p.id === killTargetId) : null;
     if (intendedVictim) {
-      const isProtected = actualKilledId === null && killTargetId !== null;
       const killMsg: WolfMessage = {
         id: uuidv4(),
         playerId: 'system',
         playerName: '系统',
-        content: isProtected
-          ? `【观众视角】狼人决定刀 ${intendedVictim.name}，但被守卫守护`
-          : `【观众视角】狼人决定刀 ${intendedVictim.name}`,
+        content: `【观众视角】狼人决定刀 ${intendedVictim.name}`,
         type: 'inner_thought',
         round: state.currentRound,
         timestamp: Date.now(),
@@ -558,64 +559,30 @@ export function useWolfGame(): UseWolfGameReturn {
       };
     }
 
-    // 进入白天
-    newState = startDay(newState);
+    newState = startWitchNight(newState);
 
-    // 添加死亡信息（使用实际的击杀结果）
-    const deathMsg: WolfMessage = {
-      id: uuidv4(),
-      playerId: 'system',
-      playerName: '系统',
-      content: victim ? `昨晚${victim.name}倒牌。` : '昨晚是平安夜。',
-      type: 'speech',
-      round: state.currentRound,
-      timestamp: Date.now(),
-    };
-
-    const finalState = {
-      ...newState,
-      messages: [...newState.messages, deathMsg],
-    };
-
-    // 检查胜利条件
-    const winner = checkWinCondition(finalState);
-    if (winner) {
-      setSession({
-        ...finalState,
-        status: 'ended',
-        winner,
-      });
-      return;
-    }
-
-    setSession(finalState);
+    setSession(newState);
     setCurrentStreamingContent('');
-    setCurrentSpeakerIndex(0);
   }
 
-  // 白天发言（简化版，只输出发言）
   async function handleDaySpeech(state: WolfGameState) {
     const alivePlayers = getAlivePlayers(state);
+    if (alivePlayers.length === 0) return;
 
     if (currentSpeakerIndex >= alivePlayers.length) {
-      // 发言结束，进入投票
-      setSession(prev => prev ? { ...prev, status: 'voting' } : null);
+      setSession({ ...state, status: 'voting' });
       setCurrentSpeakerIndex(0);
       return;
     }
 
     const speaker = alivePlayers[currentSpeakerIndex];
-
     setCurrentMessageType('speech');
     setCurrentStreamingContent(`${speaker.name}正在发言...`);
 
     const context = buildDayContext(state);
-
-    // 生成发言
     const result = await generateDaySpeech(speaker, context);
 
-    // 只添加发言消息 - 使用函数式更新确保状态正确
-    const speechMsg: WolfMessage = {
+    const msg: WolfMessage = {
       id: uuidv4(),
       playerId: speaker.id,
       playerName: speaker.name,
@@ -625,101 +592,71 @@ export function useWolfGame(): UseWolfGameReturn {
       timestamp: Date.now(),
     };
 
-    setSession(prev => {
-      if (!prev) return null;
-      return {
-        ...prev,
-        messages: [...prev.messages, speechMsg],
-      };
-    });
+    const newState = {
+      ...state,
+      messages: [...state.messages, msg],
+      status: 'day_speech',
+    };
 
-    setCurrentSpeakerIndex(prev => prev + 1);
+    setSession(newState);
+    setCurrentSpeakerIndex(currentSpeakerIndex + 1);
     setCurrentStreamingContent('');
   }
 
-  // 投票
   async function handleVoting(state: WolfGameState) {
     const alivePlayers = getAlivePlayers(state);
     const context = buildDayContext(state);
 
-    const newVotes: WolfVote[] = [];
-    const results: Record<string, number> = {};
+    const voteResults: WolfVote[] = [];
+    const voteSummaries: { voterId: string; voterName: string; targetId: string; targetName: string }[] = [];
 
-    for (const player of alivePlayers) {
+    for (const voter of alivePlayers) {
       setCurrentMessageType('inner_thought');
-      setCurrentStreamingContent(`${player.name}正在投票...`);
+      setCurrentStreamingContent(`${voter.name}正在投票...`);
 
-      const decision = await generateVoteDecision(player, context);
+      const decision = await generateVoteDecision(voter, context);
+      const target = alivePlayers.find(p => p.id === decision.targetId) || null;
 
-      const vote: WolfVote = {
-        voterId: player.id,
-        voterName: player.name,
-        targetId: decision.targetId,
-        targetName: state.players.find(p => p.id === decision.targetId)?.name || '未知',
+      voteResults.push({
+        voterId: voter.id,
+        voterName: voter.name,
+        targetId: target?.id || '',
+        targetName: target?.name || '弃票',
         round: state.currentRound,
         timestamp: Date.now(),
-      };
+      });
 
-      newVotes.push(vote);
-      results[decision.targetId] = (results[decision.targetId] || 0) + 1;
-
-      // 添加投票消息
-      const voteMsg: WolfMessage = {
-        id: uuidv4(),
-        playerId: player.id,
-        playerName: player.name,
-        content: `投票给 ${vote.targetName}（${decision.reason || '基于判断'}）`,
-        type: 'inner_thought',
-        round: state.currentRound,
-        timestamp: Date.now(),
-      };
-
-      setSession(prev => prev ? {
-        ...prev,
-        messages: [...prev.messages, voteMsg],
-      } : null);
-
-      // 短暂延迟以便UI显示
-      await new Promise(resolve => setTimeout(resolve, 300));
+      voteSummaries.push({
+        voterId: voter.id,
+        voterName: voter.name,
+        targetId: target?.id || '',
+        targetName: target?.name || '弃票',
+      });
     }
 
-    setVotes(newVotes);
-    setVotingResults(results);
+    const voteCount: Record<string, number> = {};
+    voteResults.forEach(v => {
+      if (v.targetId) {
+        voteCount[v.targetId] = (voteCount[v.targetId] || 0) + 1;
+      }
+    });
 
-    // 处理投票结果
-    const { eliminatedId, hasTie } = processVotingResults(state, newVotes);
+    setVotes(voteResults);
+    setVotingResults(voteCount);
 
-    let newState = state;
+    let newState: WolfGameState = {
+      ...state,
+      votes: voteResults,
+      votingResults: voteCount,
+    };
+
+    const voteOutcome = processVotingResults(newState, voteSummaries);
+
     let resultMsg: WolfMessage;
 
-    if (eliminatedId && !hasTie) {
-      newState = eliminatePlayer(state, eliminatedId);
-      const eliminatedPlayer = state.players.find(p => p.id === eliminatedId);
-
-      // 生成遗言
-      if (eliminatedPlayer) {
-        const finalSpeechContext = {
-          players: newState.players,
-          alivePlayers: getAlivePlayers(newState),
-          seerChecks: newState.seerChecks,
-        };
-        const finalSpeechResult = await generateFinalSpeech(eliminatedPlayer, finalSpeechContext);
-
-        // 添加遗言消息
-        const finalSpeechMsg: WolfMessage = {
-          id: uuidv4(),
-          playerId: eliminatedPlayer.id,
-          playerName: eliminatedPlayer.name,
-          content: finalSpeechResult.speech,
-          type: 'final_speech',
-          round: state.currentRound,
-          timestamp: Date.now(),
-        };
-        newState = {
-          ...newState,
-          messages: [...newState.messages, finalSpeechMsg],
-        };
-      }
+    if (voteOutcome.eliminatedId) {
+      const eliminatedPlayer = newState.players.find(p => p.id === voteOutcome.eliminatedId);
+      newState = eliminatePlayer(newState, voteOutcome.eliminatedId);
 
       resultMsg = {
         id: uuidv4(),
@@ -730,7 +667,33 @@ export function useWolfGame(): UseWolfGameReturn {
         round: state.currentRound,
         timestamp: Date.now(),
       };
-    } else if (hasTie) {
+
+      if (eliminatedPlayer) {
+        const finalSpeech = await generateFinalSpeech(eliminatedPlayer, {
+          players: newState.players,
+          alivePlayers: getAlivePlayers(newState),
+          seerChecks: newState.seerChecks,
+        });
+        const finalMsg: WolfMessage = {
+          id: uuidv4(),
+          playerId: eliminatedPlayer.id,
+          playerName: eliminatedPlayer.name,
+          content: finalSpeech.speech,
+          type: 'final_speech',
+          round: state.currentRound,
+          timestamp: Date.now(),
+        };
+        newState = {
+          ...newState,
+          messages: [...newState.messages, resultMsg, finalMsg],
+        };
+      } else {
+        newState = {
+          ...newState,
+          messages: [...newState.messages, resultMsg],
+        };
+      }
+    } else if (voteOutcome.hasTie) {
       resultMsg = {
         id: uuidv4(),
         playerId: 'system',
@@ -739,6 +702,10 @@ export function useWolfGame(): UseWolfGameReturn {
         type: 'speech',
         round: state.currentRound,
         timestamp: Date.now(),
+      };
+      newState = {
+        ...newState,
+        messages: [...newState.messages, resultMsg],
       };
     } else {
       resultMsg = {
@@ -750,14 +717,12 @@ export function useWolfGame(): UseWolfGameReturn {
         round: state.currentRound,
         timestamp: Date.now(),
       };
+      newState = {
+        ...newState,
+        messages: [...newState.messages, resultMsg],
+      };
     }
 
-    newState = {
-      ...newState,
-      messages: [...newState.messages, resultMsg],
-    };
-
-    // 检查胜利条件
     const winner = checkWinCondition(newState);
     if (winner) {
       setSession({
@@ -765,11 +730,10 @@ export function useWolfGame(): UseWolfGameReturn {
         status: 'ended',
         winner,
       });
+      setCurrentStreamingContent('');
       return;
     }
 
-    // 进入下一轮夜晚
-    // 重置所有玩家的 wasProtected 状态
     newState = {
       ...newState,
       players: newState.players.map(p => ({ ...p, wasProtected: false })),
@@ -779,8 +743,7 @@ export function useWolfGame(): UseWolfGameReturn {
     setCurrentSpeakerIndex(0);
     setCurrentStreamingContent('');
   }
-
-  // 重置游戏
+// 重置游戏
   const resetGame = useCallback(() => {
     abortControllerRef.current?.abort();
     setSession(null);
@@ -819,3 +782,21 @@ export function useWolfGame(): UseWolfGameReturn {
     stopGeneration,
   };
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

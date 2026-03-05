@@ -27,7 +27,8 @@ export function WolfPlayerCard({
       'villager': '村民',
       'werewolf': '狼人',
       'seer': '预言家',
-      'guardian': '守卫',
+      'witch': '女巫',
+      'hunter': '猎人',
     };
     return roleMap[role] || role;
   };
@@ -35,7 +36,7 @@ export function WolfPlayerCard({
   const getBackgroundColor = () => {
     if (!showIdentity) return 'bg-gray-50 border-gray-200';
     if (player.role === 'werewolf') return 'bg-red-50 border-red-200';
-    if (player.role === 'seer' || player.role === 'guardian') return 'bg-purple-50 border-purple-200';
+    if (['seer','witch','hunter'].includes(player.role)) return 'bg-purple-50 border-purple-200';
     return 'bg-blue-50 border-blue-200';
   };
 
@@ -55,14 +56,20 @@ export function WolfPlayerCard({
         </Badge>
       );
     }
-    if (player.role === 'guardian') {
+        if (player.role === 'witch') {
       return (
-        <Badge variant="default" className="bg-purple-500 text-xs">
-          守卫
+        <Badge variant="default" className="bg-pink-500 text-xs">
+          女巫
         </Badge>
       );
     }
-    return (
+    if (player.role === 'hunter') {
+      return (
+        <Badge variant="default" className="bg-amber-500 text-xs">
+          猎人
+        </Badge>
+      );
+    }    return (
       <Badge variant="default" className="bg-blue-500 text-xs">
         村民
       </Badge>
@@ -152,3 +159,7 @@ export function WolfPlayerCard({
     </div>
   );
 }
+
+
+
+

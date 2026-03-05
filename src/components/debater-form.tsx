@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -54,15 +54,15 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
   const [maxTokens, setMaxTokens] = useState(debater.maxTokens ?? 1000);
   const [thinkingMode, setThinkingMode] = useState(debater.thinkingMode ?? false);
 
-  // 当模型变化时自动更新Base URL（如果用户未自定义）
-  useEffect(() => {
-    const defaultUrl = MODEL_BASE_URLS[model] || 'https://api.openai.com/v1';
-    // 只有当baseUrl是默认值时才更新，用户修改过的不更新
+  const updateModel = (nextModel: string) => {
+    setModel(nextModel);
+    const defaultUrl = MODEL_BASE_URLS[nextModel] || 'https://api.openai.com/v1';
     const isDefaultUrl = !baseUrl || Object.values(MODEL_BASE_URLS).includes(baseUrl) || baseUrl === 'https://api.openai.com/v1';
     if (isDefaultUrl) {
       setBaseUrl(defaultUrl);
     }
-  }, [model]);
+  };
+
 
   function getDefaultPrompt(role: DebaterRole, team: TeamSide): string {
     return DEBATER_PROMPTS[role][team];
@@ -108,7 +108,7 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
         <label className="text-sm font-medium">模型</label>
         <Input
           value={model}
-          onChange={(e) => setModel(e.target.value)}
+          onChange={(e) => updateModel(e.target.value)}
           placeholder="gpt-4o-mini"
         />
         <div className="flex flex-wrap gap-1.5">
@@ -123,7 +123,7 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500 shadow-lg scale-105 font-bold'
                   : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-300'
               }`}
-              onClick={() => setModel(m)}
+              onClick={() => updateModel(m)}
             >
               {m}
             </Button>

@@ -16,10 +16,15 @@ export interface WolfGameState {
   // 狼人密聊
   wolfChatMessages: WolfMessage[];
   currentWolfChatPlayerIndex: number;
-  // 守卫
+  // 旧守卫字段（当前未使用）
   lastProtectedId: string | null;
   // 预言家
   seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
+  // 女巫
+  witchSaveUsed: boolean;
+  witchPoisonUsed: boolean;
+  witchDecision: 'save' | 'poison' | 'none';
+  witchTargetId: string | null;
 }
 
 // 夜晚行动结果
@@ -29,6 +34,7 @@ export interface WolfNightAction {
   checkResult: 'good' | 'evil' | null;
   killedId: string | null;
   healedId: string | null;
+  poisonedId: string | null;
 }
 
 // 投票结果
@@ -48,6 +54,8 @@ export interface NightContext {
   nightAction: WolfNightAction;
   seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
   lastProtectedId: string | null;
+  witchSaveUsed: boolean;
+  witchPoisonUsed: boolean;
 }
 
 // 白天发言上下文

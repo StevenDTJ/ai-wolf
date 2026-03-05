@@ -1,5 +1,4 @@
-'use client';
-
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +31,7 @@ import {
   Save,
   FolderOpen,
   Trash2,
-  Shield,
+  FlaskConical,
   Skull,
   EyeIcon,
   Users,
@@ -42,7 +41,6 @@ import {
   Swords,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
 // 预设接口
 interface WolfPlayerPreset {
   id: string;
@@ -84,22 +82,18 @@ export function WolfGame({ wolf }: WolfGameProps) {
   });
 
   // 预设状态管理
-  const [presets, setPresets] = useState<WolfPlayerPreset[]>([]);
+  const [presets, setPresets] = useState<WolfPlayerPreset[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = localStorage.getItem('wolfPlayerPresets');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presetMode, setPresetMode] = useState<'save' | 'load'>('save');
-
-  // 从 localStorage 加载预设
-  useEffect(() => {
-    const saved = localStorage.getItem('wolfPlayerPresets');
-    if (saved) {
-      try {
-        setPresets(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load presets:', e);
-      }
-    }
-  }, []);
 
   // 保存预设到 localStorage
   const savePresets = (newPresets: WolfPlayerPreset[]) => {
@@ -148,8 +142,8 @@ export function WolfGame({ wolf }: WolfGameProps) {
   // 加载玩家数据
   useEffect(() => {
     if (players.length === 0) {
-      // 添加默认6名玩家
-      const defaultPlayers = Array.from({ length: 6 }, (_, i) =>
+      // 添加默认8名玩家
+      const defaultPlayers = Array.from({ length: 8 }, (_, i) =>
         createDefaultWolfPlayer(i + 1)
       );
       defaultPlayers.forEach(p => addPlayer(p));
@@ -180,14 +174,14 @@ export function WolfGame({ wolf }: WolfGameProps) {
         bgColor: 'bg-gray-100 border-gray-300'
       },
       night: {
-        text: '夜晚 - 守卫行动',
-        icon: <Shield className="w-4 h-4" />,
+        text: '夜晚 - 女巫行动',
+        icon: <FlaskConical className="w-4 h-4" />,
         color: 'text-blue-600',
         bgColor: 'bg-blue-100 border-blue-300'
       },
-      night_guardian: {
-        text: '夜晚 - 守卫行动',
-        icon: <Shield className="w-4 h-4" />,
+      night_witch: {
+        text: '夜晚 - 女巫行动',
+        icon: <FlaskConical className="w-4 h-4" />,
         color: 'text-blue-600',
         bgColor: 'bg-blue-100 border-blue-300'
       },
@@ -238,11 +232,12 @@ export function WolfGame({ wolf }: WolfGameProps) {
 
   // 获取玩家身份标签
   const getRoleLabel = (role: string) => {
-    const roleMap: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+            const roleMap: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
       villager: { label: '村民', color: 'bg-blue-100 text-blue-700 border-blue-300', icon: <Users className="w-3 h-3" /> },
       werewolf: { label: '狼人', color: 'bg-red-100 text-red-700 border-red-300', icon: <Skull className="w-3 h-3" /> },
       seer: { label: '预言家', color: 'bg-purple-100 text-purple-700 border-purple-300', icon: <EyeIcon className="w-3 h-3" /> },
-      guardian: { label: '守卫', color: 'bg-green-100 text-green-700 border-green-300', icon: <Shield className="w-3 h-3" /> },
+      witch: { label: '女巫', color: 'bg-pink-100 text-pink-700 border-pink-300', icon: <FlaskConical className="w-3 h-3" /> },
+      hunter: { label: '猎人', color: 'bg-amber-100 text-amber-700 border-amber-300', icon: <Swords className="w-3 h-3" /> },
     };
     return roleMap[role] || { label: role, color: 'bg-gray-100 text-gray-700 border-gray-300', icon: null };
   };
@@ -278,8 +273,8 @@ export function WolfGame({ wolf }: WolfGameProps) {
 
   // 添加玩家
   const handleAddPlayer = () => {
-    if (players.length >= 6) {
-      toast.warning('玩家数量已达到上限（6人）');
+    if (players.length >= 8) {
+      toast.warning('玩家数量已达到上限（8人）');
       return;
     }
     const newPlayer = createDefaultWolfPlayer(players.length + 1);
@@ -292,7 +287,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
     switch (session.status) {
       case 'waiting': return '开始第1晚';
       case 'night':
-      case 'night_guardian': return '守卫行动';
+        case 'night_witch': return '女巫行动';
       case 'night_seer': return '预言家验人';
       case 'night_werewolf': return '狼人密聊';
       case 'werewolf_chat': return '确认刀人';
@@ -305,7 +300,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
   // 获取加载中的提示文本
   const getLoadingText = (type: string) => {
     switch (type) {
-      case 'guardian_action': return '守卫正在选择守护目标...';
+      case 'witch_action': return '女巫正在决策...';
       case 'seer_action': return '预言家正在选择查验目标...';
       case 'wolf_chat': return '狼人密聊中...';
       case 'speech': return '正在发言...';
@@ -315,6 +310,11 @@ export function WolfGame({ wolf }: WolfGameProps) {
   };
 
   const statusConfig = session ? getStatusConfig(session.status) : getStatusConfig('waiting');
+    const killedPlayer = session?.nightAction?.killedId
+      ? session.players.find(p => p.id === session.nightAction.killedId)
+      : null;
+    const killedPlayerName = killedPlayer?.name || '无人';
+
 
   return (
     <div className="h-full flex flex-col gap-4">
@@ -351,35 +351,39 @@ export function WolfGame({ wolf }: WolfGameProps) {
           {!session ? (
             <div className="text-center py-6 space-y-4">
               <div className="text-sm text-muted-foreground space-y-2">
-                <p className="font-medium">6人标准局配置</p>
-                <div className="flex justify-center gap-2 flex-wrap">
-                  <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                    <Skull className="w-3 h-3 mr-1" />
-                    狼人 ×2
-                  </Badge>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    <Users className="w-3 h-3 mr-1" />
-                    村民 ×2
-                  </Badge>
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                    <EyeIcon className="w-3 h-3 mr-1" />
-                    预言家 ×1
-                  </Badge>
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    <Shield className="w-3 h-3 mr-1" />
-                    守卫 ×1
-                  </Badge>
-                </div>
+                <p className="font-medium">8人标准局配置</p>
+                                  <div className="flex justify-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                      <Skull className="w-3 h-3 mr-1" />
+                      狼人 ×2
+                    </Badge>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      <Users className="w-3 h-3 mr-1" />
+                      村民 ×3
+                    </Badge>
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                      <EyeIcon className="w-3 h-3 mr-1" />
+                      预言家 ×1
+                    </Badge>
+                    <Badge variant="outline" className="bg-pink-50 text-pink-700 border-pink-200">
+                      <FlaskConical className="w-3 h-3 mr-1" />
+                      女巫 ×1
+                    </Badge>
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <Swords className="w-3 h-3 mr-1" />
+                      猎人 ×1
+                    </Badge>
+                  </div>
               </div>
 
               <Button
                 onClick={initGame}
-                disabled={players.length !== 6 || isLoading}
+                disabled={players.length !== 8 || isLoading}
                 size="lg"
                 className="w-full max-w-xs"
               >
                 <Play className="w-4 h-4 mr-2" />
-                {players.length !== 6 ? `需要6名玩家 (${players.length}/6)` : '开始游戏'}
+                {players.length !== 8 ? `需要8名玩家 (${players.length}/8)` : '开始游戏'}
               </Button>
             </div>
           ) : (
@@ -463,7 +467,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
             <span>玩家列表</span>
             {session && (
               <span className="text-muted-foreground font-normal">
-                {session.players.filter(p => p.isAlive).length} / 6 存活
+                {session.players.filter(p => p.isAlive).length} / 8 存活
               </span>
             )}
           </CardTitle>
@@ -823,7 +827,7 @@ function StreamingBubble({
   type
 }: {
   content: string;
-  type: 'inner_thought' | 'speech' | 'wolf_chat' | 'guardian_action' | 'seer_action';
+  type: 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'seer_action';
 }) {
   const typeStyles = {
     inner_thought: {
@@ -841,10 +845,10 @@ function StreamingBubble({
       badge: 'bg-red-300 text-red-800',
       label: '🐺 密聊中',
     },
-    guardian_action: {
-      container: 'bg-green-50 border-green-300 border-dashed',
-      badge: 'bg-green-300 text-green-800',
-      label: '🛡️ 正在守护',
+    witch_action: {
+        container: 'bg-pink-50 border-pink-300 border-dashed',
+        badge: 'bg-pink-300 text-pink-800',
+      label: '🧪 女巫行动',
     },
     seer_action: {
       container: 'bg-purple-50 border-purple-300 border-dashed',
@@ -869,3 +873,21 @@ function StreamingBubble({
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

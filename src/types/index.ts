@@ -452,17 +452,17 @@ export enum GameMode {
 }
 
 // ============================================
-// 狼人杀游戏类型（6人守卫局）
+// 狼人杀游戏类型（8人女巫猎人局）
 // ============================================
 
 // 狼人杀角色
-export type WolfRole = 'villager' | 'werewolf' | 'seer' | 'guardian';
+export type WolfRole = 'villager' | 'werewolf' | 'seer' | 'witch' | 'hunter';
 
 // 狼人杀游戏状态
 export type WolfGameStatus =
   | 'waiting'           // 等待开始
   | 'night'             // 夜晚
-  | 'night_guardian'    // 守卫行动
+  | 'night_witch'        // 女巫行动
   | 'night_seer'        // 预言家行动
   | 'night_werewolf'    // 狼人行动
   | 'werewolf_chat'     // 狼人密聊中
@@ -487,7 +487,7 @@ export interface WolfPlayer {
 }
 
 // 狼人杀消息类型
-export type WolfMessageType = 'inner_thought' | 'speech' | 'wolf_chat' | 'final_speech';
+export type WolfMessageType = 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'final_speech';
 
 // 狼人杀消息
 export interface WolfMessage {
@@ -534,7 +534,7 @@ export interface WolfSession {
   // 狼人密聊相关
   wolfChatMessages: WolfMessage[];
   currentWolfChatPlayerIndex: number;
-  // 守卫相关
+  // 旧守卫字段（当前未使用）
   lastProtectedId: string | null;  // 上一晚被守护的玩家ID
   // 预言家相关
   seerChecks: Array<{ playerId: string; playerName: string; result: 'good' | 'evil' }>;
@@ -555,3 +555,5 @@ export interface AudienceQuestion {
   answerAgentName?: string;
   timestamp: number;
 }
+
+

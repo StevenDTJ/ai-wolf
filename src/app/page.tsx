@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -57,7 +57,14 @@ export default function Home() {
   const [gameMode, setGameMode] = useState<GameMode>('debate');
 
   // Agent state
-  const [agents, setAgents] = useState<AgentConfig[]>([]);
+  const [agents, setAgents] = useState<AgentConfig[]>(() => {
+    const savedAgents = loadAgentsFromStorage();
+    if (savedAgents.length > 0) return savedAgents;
+    return [
+      { ...createDefaultAgent('pro'), name: '正方一辩', model: 'gpt-4o-mini' },
+      { ...createDefaultAgent('con'), name: '反方一辩', model: 'gpt-4o-mini' },
+    ];
+  });
   const [editingAgent, setEditingAgent] = useState<AgentConfig | null>(null);
   const [isAgentDialogOpen, setIsAgentDialogOpen] = useState(false);
 
@@ -74,8 +81,26 @@ export default function Home() {
 
   // 8-Person Debate Mode
   const [debateMode, setDebateMode] = useState<'2person' | '8person'>('2person');
-  const [proDebaters, setProDebaters] = useState<Debater[]>([]);
-  const [conDebaters, setConDebaters] = useState<Debater[]>([]);
+  const [proDebaters, setProDebaters] = useState<Debater[]>(() => {
+    const savedProDebaters = loadProDebatersFromStorage();
+    if (savedProDebaters.length > 0) return savedProDebaters;
+    return [
+      createDefaultDebater('first', 'pro'),
+      createDefaultDebater('second', 'pro'),
+      createDefaultDebater('third', 'pro'),
+      createDefaultDebater('fourth', 'pro'),
+    ];
+  });
+  const [conDebaters, setConDebaters] = useState<Debater[]>(() => {
+    const savedConDebaters = loadConDebatersFromStorage();
+    if (savedConDebaters.length > 0) return savedConDebaters;
+    return [
+      createDefaultDebater('first', 'con'),
+      createDefaultDebater('second', 'con'),
+      createDefaultDebater('third', 'con'),
+      createDefaultDebater('fourth', 'con'),
+    ];
+  });
   const [editingDebater, setEditingDebater] = useState<Debater | null>(null);
   const [isDebaterDialogOpen, setIsDebaterDialogOpen] = useState(false);
 
@@ -112,47 +137,6 @@ export default function Home() {
   // Wolf game hook
   const wolf = useWolfGame();
 
-  // Load agents from localStorage on mount
-  useEffect(() => {
-    const savedAgents = loadAgentsFromStorage();
-    if (savedAgents.length > 0) {
-      setAgents(savedAgents);
-    } else {
-      // Add default agents for demo
-      const defaultAgents = [
-        { ...createDefaultAgent('pro'), name: '正方一辩', model: 'gpt-4o-mini' },
-        { ...createDefaultAgent('con'), name: '反方一辩', model: 'gpt-4o-mini' },
-      ];
-      setAgents(defaultAgents);
-      saveAgentsToStorage(defaultAgents);
-    }
-
-    // Load 8-person debaters from localStorage
-    const savedProDebaters = loadProDebatersFromStorage();
-    const savedConDebaters = loadConDebatersFromStorage();
-    if (savedProDebaters.length > 0 || savedConDebaters.length > 0) {
-      setProDebaters(savedProDebaters);
-      setConDebaters(savedConDebaters);
-    } else {
-      // Initialize empty debaters for 8-person mode
-      const defaultProDebaters = [
-        createDefaultDebater('first', 'pro'),
-        createDefaultDebater('second', 'pro'),
-        createDefaultDebater('third', 'pro'),
-        createDefaultDebater('fourth', 'pro'),
-      ];
-      const defaultConDebaters = [
-        createDefaultDebater('first', 'con'),
-        createDefaultDebater('second', 'con'),
-        createDefaultDebater('third', 'con'),
-        createDefaultDebater('fourth', 'con'),
-      ];
-      setProDebaters(defaultProDebaters);
-      setConDebaters(defaultConDebaters);
-      saveProDebatersToStorage(defaultProDebaters);
-      saveConDebatersToStorage(defaultConDebaters);
-    }
-  }, []);
 
   // Auto-generate next turn when running
   useEffect(() => {
@@ -718,7 +702,7 @@ export default function Home() {
                             agentName: debateMode === '8person' ? (getCurrentSpeaker()?.name || '匿名辩手') : (session.agents[session.currentAgentIndex]?.name || '匿名辩手'),
                             stance: debateMode === '8person' ? (getCurrentSpeaker()?.team || 'pro') : (session.agents[session.currentAgentIndex]?.stance || 'pro'),
                             content: currentStreamingContent,
-                            timestamp: Date.now(),
+                            timestamp: (session.messages[session.messages.length - 1]?.timestamp ?? 0),
                           }}
                           isStreaming={true}
                           isCrossExamStage={debateMode === '8person' && crossExamState.isActive}

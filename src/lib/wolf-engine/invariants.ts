@@ -15,7 +15,7 @@ export function validateInvariants(state: WolfGameState): string[] {
   const killedId = state.nightAction.killedId;
   if (killedId) {
     const target = state.players.find(player => player.id === killedId);
-    if (!target || !target.isAlive || target.role === 'werewolf') {
+    if (!target || target.role === 'werewolf') {
       errors.push(`werewolf_kill_target_invalid:${killedId}`);
     }
   }

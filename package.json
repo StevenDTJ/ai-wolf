@@ -10,7 +10,9 @@
                     "test":  "vitest run",
                     "test:watch":  "vitest",
                     "test:wolf:sim":  "vitest run src/lib/wolf-engine/simulation.test.ts",
-                    "check:wolf:release":  "node scripts/check-wolf-release.ts"
+                    "check:wolf:release":  "node scripts/check-wolf-release.ts",
+                    "selfplay:eval":  "node scripts/run-selfplay-eval.ts",
+                    "selfplay:promote":  "node scripts/promote-selfplay-strategy.ts"
                 },
     "dependencies":  {
                          "@types/uuid":  "^10.0.0",

@@ -1,0 +1,11 @@
+{
+  "promoted": true,
+  "uplift": 0.14197823000473273,
+  "gatePassed": true,
+  "baselineScore": 0.52825,
+  "candidateScore": 0.6032500000000001,
+  "baselineStrategyId": "strategy-baseline-v1",
+  "candidateStrategyId": "strategy-baseline-v1-candidate",
+  "productionStrategyId": "strategy-baseline-v1-candidate",
+  "decidedAt": "2026-03-06T09:45:44.567Z"
+}

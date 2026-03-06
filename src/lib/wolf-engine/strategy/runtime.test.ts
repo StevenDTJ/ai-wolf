@@ -1,14 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { loadStrategyById } from './registry';
 import { getProductionStrategyId } from './runtime';
 
 describe('strategy runtime', () => {
   const reportPath = resolve(process.cwd(), 'reports', 'production-strategy.json');
+  const strategyDir = resolve(process.cwd(), 'reports', 'strategies');
+  const candidateStrategyPath = resolve(strategyDir, 'strategy-baseline-v1-candidate.strategy.json');
 
   afterEach(() => {
     if (existsSync(reportPath)) {
       rmSync(reportPath, { force: true });
+    }
+    if (existsSync(candidateStrategyPath)) {
+      rmSync(candidateStrategyPath, { force: true });
     }
     delete process.env.WOLF_STRATEGY_ID;
   });
@@ -26,5 +32,24 @@ describe('strategy runtime', () => {
     process.env.WOLF_STRATEGY_ID = 'strategy-env-v1';
 
     expect(getProductionStrategyId()).toBe('strategy-env-v1');
+  });
+
+  it('allows registry to load promoted strategy id from runtime report', () => {
+    mkdirSync(strategyDir, { recursive: true });
+    writeFileSync(reportPath, JSON.stringify({ strategyId: 'strategy-baseline-v1-candidate' }), 'utf-8');
+    writeFileSync(
+      candidateStrategyPath,
+      JSON.stringify({
+        id: 'strategy-baseline-v1-candidate',
+        parentId: 'strategy-baseline-v1',
+        createdAt: '2026-03-06T00:00:00.000Z',
+        wolf: { aggressiveness: 0.7, promptSuffix: 'candidate wolf' },
+        good: { aggressiveness: 0.4, promptSuffix: 'candidate good' },
+      }),
+      'utf-8'
+    );
+
+    const strategy = loadStrategyById(getProductionStrategyId());
+    expect(strategy.id).toBe('strategy-baseline-v1-candidate');
   });
 });

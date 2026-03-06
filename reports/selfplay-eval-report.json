@@ -1,0 +1,49 @@
+{
+  "generatedAt": "2026-03-06T08:03:53.336Z",
+  "baselineStrategyId": "strategy-baseline-v1",
+  "metrics": {
+    "winRate": 1,
+    "keyDecision": 0.6,
+    "robustness": 1,
+    "violations": 0,
+    "violationPenalty": 0
+  },
+  "score": 0.88,
+  "games": [
+    {
+      "seed": 0,
+      "wolfStrategyId": "strategy-baseline-v1",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null
+    },
+    {
+      "seed": 1,
+      "wolfStrategyId": "strategy-baseline-v1",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null
+    },
+    {
+      "seed": 2,
+      "wolfStrategyId": "strategy-baseline-v1",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null
+    },
+    {
+      "seed": 3,
+      "wolfStrategyId": "strategy-baseline-v1",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null
+    },
+    {
+      "seed": 4,
+      "wolfStrategyId": "strategy-baseline-v1",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null
+    }
+  ]
+}

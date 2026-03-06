@@ -28,6 +28,8 @@ import {
   getSeer,
   getWitch,
   getInvariantErrors,
+  deriveUiEvents,
+  type UiEventV1,
 } from '@/lib/wolf-engine';
 import { buildContext } from '@/lib/wolf-engine/context';
 import { handleHunterElimination } from '@/lib/wolf-engine/hunterIntegration';
@@ -152,6 +154,7 @@ export interface UseWolfGameReturn {
   votingResults: Record<string, number>;
   currentSpeakerIndex: number;
   pendingTransition: WolfPhaseTransition | null;
+  uiEvents: UiEventV1[];
   addPlayer: (player: WolfPlayer) => void;
   updatePlayer: (player: WolfPlayer) => void;
   removePlayer: (id: string) => void;
@@ -186,8 +189,22 @@ export function useWolfGame(): UseWolfGameReturn {
   const [pendingTransition, setPendingTransition] = useState<WolfPhaseTransition | null>(null);
   const pendingSessionRef = useRef<WolfGameState | null>(null);
 
+  // UI events timeline
+  const [uiEvents, setUiEvents] = useState<UiEventV1[]>([]);
+
   // 取消控制器
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Derive UI events when session changes
+  useEffect(() => {
+    if (!session || !sessionRef.current) return;
+    const prevState = sessionRef.current;
+    const nextState = session;
+    const newEvents = deriveUiEvents(prevState, nextState);
+    if (newEvents.length > 0) {
+      setUiEvents(prev => [...prev, ...newEvents]);
+    }
+  }, [session]);
 
   // 同步 session 到 ref
   useEffect(() => {
@@ -205,6 +222,7 @@ export function useWolfGame(): UseWolfGameReturn {
     setSession(pendingSessionRef.current);
     pendingSessionRef.current = null;
     setPendingTransition(null);
+    setUiEvents([]);
   }, []);
 
   // 保存玩家
@@ -771,6 +789,7 @@ export function useWolfGame(): UseWolfGameReturn {
     setCurrentSpeakerIndex(0);
     pendingSessionRef.current = null;
     setPendingTransition(null);
+    setUiEvents([]);
     setIsLoading(false);
   }, []);
 
@@ -792,6 +811,7 @@ export function useWolfGame(): UseWolfGameReturn {
     votingResults,
     currentSpeakerIndex,
     pendingTransition,
+    uiEvents,
     addPlayer,
     updatePlayer,
     removePlayer,

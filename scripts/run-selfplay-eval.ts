@@ -59,6 +59,8 @@ async function main() {
 
   const outDir = path.resolve(__dirname, '../reports');
   fs.mkdirSync(outDir, { recursive: true });
+  const strategyOutDir = path.join(outDir, 'strategies');
+  fs.mkdirSync(strategyOutDir, { recursive: true });
 
   const baselineReport = {
     generatedAt: new Date().toISOString(),
@@ -82,9 +84,12 @@ async function main() {
   const candidateOutFile = path.join(outDir, 'selfplay-eval-candidate.json');
   fs.writeFileSync(baselineOutFile, JSON.stringify(baselineReport, null, 2), 'utf-8');
   fs.writeFileSync(candidateOutFile, JSON.stringify(candidateReport, null, 2), 'utf-8');
+  const candidateStrategyOutFile = path.join(strategyOutDir, `${candidate.id}.strategy.json`);
+  fs.writeFileSync(candidateStrategyOutFile, JSON.stringify(candidate, null, 2), 'utf-8');
 
   console.log(`[selfplay-eval] baseline report: ${baselineOutFile}`);
   console.log(`[selfplay-eval] candidate report: ${candidateOutFile}`);
+  console.log(`[selfplay-eval] candidate strategy: ${candidateStrategyOutFile}`);
   console.log(`[selfplay-eval] baseline score=${baselineReport.score.toFixed(4)}`);
   console.log(`[selfplay-eval] candidate score=${candidateReport.score.toFixed(4)}`);
 }

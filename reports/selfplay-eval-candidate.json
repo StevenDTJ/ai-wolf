@@ -1,0 +1,195 @@
+{
+  "generatedAt": "2026-03-06T09:45:44.464Z",
+  "strategyId": "strategy-baseline-v1-candidate",
+  "opponentStrategyId": "strategy-baseline-v1",
+  "metrics": {
+    "winRate": 0.6,
+    "keyDecision": 0.2775000000000001,
+    "robustness": 1,
+    "violations": 0,
+    "violationPenalty": 0
+  },
+  "score": 0.6032500000000001,
+  "games": [
+    {
+      "seed": 0,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 15
+    },
+    {
+      "seed": 1,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 15
+    },
+    {
+      "seed": 2,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 15
+    },
+    {
+      "seed": 3,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 15
+    },
+    {
+      "seed": 4,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 15
+    },
+    {
+      "seed": 5,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 15
+    },
+    {
+      "seed": 6,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 16
+    },
+    {
+      "seed": 7,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 16
+    },
+    {
+      "seed": 8,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 16
+    },
+    {
+      "seed": 9,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 16
+    },
+    {
+      "seed": 10,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 13
+    },
+    {
+      "seed": 11,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 13
+    },
+    {
+      "seed": 12,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 13
+    },
+    {
+      "seed": 13,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 13
+    },
+    {
+      "seed": 14,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 13
+    },
+    {
+      "seed": 15,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 14
+    },
+    {
+      "seed": 16,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 14
+    },
+    {
+      "seed": 17,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 14
+    },
+    {
+      "seed": 18,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "good",
+      "rounds": 14
+    },
+    {
+      "seed": 19,
+      "wolfStrategyId": "strategy-baseline-v1-candidate",
+      "goodStrategyId": "strategy-baseline-v1",
+      "terminated": true,
+      "failureReason": null,
+      "winner": "wolf",
+      "rounds": 14
+    }
+  ]
+}

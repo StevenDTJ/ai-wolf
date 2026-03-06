@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { deriveUiEvents, type WolfGameState } from './uiEventAdapter';
-import { WolfGameStatus, WolfRole } from '@/types';
+import { WolfRole } from '@/types';
 
 function createMockPlayer(id: string, name: string, role: WolfRole) {
   return {
@@ -126,6 +126,63 @@ describe('uiEventAdapter', () => {
     const events = deriveUiEvents(state, state);
 
     expect(events).toHaveLength(0);
+  });
+
+  it('uses generic public text for seer check event', () => {
+    const prevState = createMockState({ status: 'night_seer' });
+    const nextState = createMockState({
+      status: 'night_werewolf',
+      nightAction: {
+        protectedId: null,
+        checkedId: 'p2',
+        checkResult: 'evil',
+        killedId: null,
+        healedId: null,
+        poisonedId: null,
+      },
+    });
+
+    const events = deriveUiEvents(prevState, nextState);
+    const seerEvent = events.find(
+      e => e.type === 'night_action' && e.data.actionType === 'seer_check'
+    );
+
+    expect(seerEvent).toBeDefined();
+    expect(seerEvent?.data.publicText).toBe('夜晚行动已结算');
+    expect(String(seerEvent?.data.directorText)).toContain('预言家查验');
+  });
+
+  it('does not leak wolf-action wording in public kill text', () => {
+    const prevState = createMockState({ status: 'night_werewolf' });
+    const nextState = createMockState({
+      status: 'day',
+      players: [
+        { ...createMockPlayer('p1', '玩家1', 'villager'), isAlive: false },
+        createMockPlayer('p2', '玩家2', 'werewolf'),
+        createMockPlayer('p3', '玩家3', 'seer'),
+        createMockPlayer('p4', '玩家4', 'witch'),
+        createMockPlayer('p5', '玩家5', 'hunter'),
+        createMockPlayer('p6', '玩家6', 'villager'),
+        createMockPlayer('p7', '玩家7', 'werewolf'),
+        createMockPlayer('p8', '玩家8', 'villager'),
+      ],
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: 'p1',
+        healedId: null,
+        poisonedId: null,
+      },
+    });
+
+    const events = deriveUiEvents(prevState, nextState);
+    const publicTexts = events
+      .map(event => event.data.publicText)
+      .filter((text): text is string => typeof text === 'string');
+
+    expect(publicTexts.some(text => text.includes('昨夜死亡：玩家1'))).toBe(true);
+    expect(publicTexts.some(text => text.includes('狼人击杀'))).toBe(false);
   });
 
   it('emits game_ended when winner is determined', () => {

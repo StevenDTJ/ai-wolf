@@ -18,6 +18,7 @@ describe('uiEvents', () => {
 
   it('supports all event types', () => {
     const eventTypes: UiEventType[] = [
+      'round_started',
       'phase_changed',
       'player_eliminated',
       'vote_cast',

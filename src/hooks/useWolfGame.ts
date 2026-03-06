@@ -141,6 +141,22 @@ export function ensureTransitionStateValid(state: WolfGameState, transition: Wol
     throw new Error('[' + transition + '] invariant_violation: ' + errors.join(','));
   }
 }
+export function buildHunterFinalSpeech(
+  hunter: WolfPlayer,
+  state: WolfGameState
+): string {
+  const fallbackSpeech = `我是${hunter.name}。`;
+  if (hunter.role !== 'hunter' || !state.hunterKillTargetId) {
+    return fallbackSpeech;
+  }
+
+  const target = state.players.find(player => player.id === state.hunterKillTargetId);
+  if (!target) {
+    return fallbackSpeech;
+  }
+
+  return `我是${hunter.name}，遗言声明：我带走${target.playerNumber}号。`;
+}
 
 // Hook 返回类型
 export interface UseWolfGameReturn {
@@ -708,11 +724,13 @@ export function useWolfGame(): UseWolfGameReturn {
       };
 
       if (eliminatedPlayer) {
-        const finalSpeech = await generateFinalSpeech(eliminatedPlayer, {
-          players: newState.players,
-          alivePlayers: getAlivePlayers(newState),
-          seerChecks: eliminatedPlayer.role === 'seer' ? newState.seerChecks : [],
-        });
+        const finalSpeech = eliminatedPlayer.role === 'hunter'
+          ? { speech: buildHunterFinalSpeech(eliminatedPlayer, newState) }
+          : await generateFinalSpeech(eliminatedPlayer, {
+            players: newState.players,
+            alivePlayers: getAlivePlayers(newState),
+            seerChecks: eliminatedPlayer.role === 'seer' ? newState.seerChecks : [],
+          });
         const finalMsg: WolfMessage = {
           id: uuidv4(),
           playerId: eliminatedPlayer.id,
@@ -823,9 +841,4 @@ export function useWolfGame(): UseWolfGameReturn {
     stopGeneration,
   };
 }
-
-
-
-
-
 

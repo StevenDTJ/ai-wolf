@@ -3,7 +3,7 @@ import { Settings } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface HeaderProps {
-  onSettingsClick: () => void;
+  onSettingsClick?: () => void;
 }
 
 export function Header({ onSettingsClick }: HeaderProps) {
@@ -22,12 +22,14 @@ export function Header({ onSettingsClick }: HeaderProps) {
           </Badge>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={onSettingsClick} className="text-foreground">
-            <Settings className="w-4 h-4 mr-2" />
-            设置
-          </Button>
-        </div>
+        {onSettingsClick && (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={onSettingsClick} className="text-foreground">
+              <Settings className="w-4 h-4 mr-2" />
+              设置
+            </Button>
+          </div>
+        )}
       </div>
     </header>
   );

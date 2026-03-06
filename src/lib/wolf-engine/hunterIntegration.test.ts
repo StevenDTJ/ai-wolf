@@ -82,7 +82,6 @@ describe('handleHunterElimination', () => {
     expect(result.hunterKillTargetId).toBeNull();
   });
 
-  
   it('records hunter kill phase when hunter shoots', async () => {
     const state = makeState('p8');
 
@@ -92,6 +91,14 @@ describe('handleHunterElimination', () => {
     expect(result.hunterKillRound).toBe(1);
   });
 
+  it('uses parsed hunter target as the executed kill target', async () => {
+    const state = makeState('p8');
+    const aiCall = async () => '遗言：我会带走3号，选择：3';
+
+    const result = await handleHunterElimination(state, aiCall);
+    const target = result.players.find(player => player.id === 'p3');
+
+    expect(result.hunterKillTargetId).toBe('p3');
+    expect(target?.isAlive).toBe(false);
+  });
 });
-
-

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const { spawnSync } = require('child_process');
 
-function runNpmStep(label, npmArgs) {
+function runNpmStep(label: string, npmArgs: string[]) {
   console.log(`\n[wolf-release] ${label}`);
 
   const command = process.platform === 'win32' ? 'cmd' : 'npm';
@@ -20,7 +20,7 @@ function runNpmStep(label, npmArgs) {
   }
 }
 
-function main() {
+function runWolfReleaseCheck() {
   runNpmStep('invariants + rule tests', [
     'test',
     '--',
@@ -44,4 +44,4 @@ function main() {
   console.log('\n[wolf-release] PASS: all release gate checks passed.');
 }
 
-main();
+runWolfReleaseCheck();

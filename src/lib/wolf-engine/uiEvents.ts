@@ -1,4 +1,5 @@
 export type UiEventType =
+  | 'round_started'
   | 'phase_changed'
   | 'player_eliminated'
   | 'vote_cast'

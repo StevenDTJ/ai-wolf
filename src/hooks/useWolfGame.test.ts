@@ -5,6 +5,7 @@ import {
   createDefaultWolfPlayer,
   resolveWerewolfTargetId,
   ensureTransitionStateValid,
+  buildHunterFinalSpeech,
 } from './useWolfGame';
 import { createWolfGame, startWolfGame } from '@/lib/wolf-engine';
 import { WolfPlayer } from '@/types';
@@ -75,5 +76,18 @@ describe('useWolfGame helpers', () => {
 
     expect(() => ensureTransitionStateValid(state, 'to_day')).not.toThrow();
     expect(() => ensureTransitionStateValid(state, 'to_night')).not.toThrow();
+  });
+
+  it('buildHunterFinalSpeech keeps statement target consistent with executed hunter kill target', () => {
+    const state = createState();
+    const hunter = state.players[0];
+    const target = state.players[4];
+
+    hunter.role = 'hunter';
+    state.hunterKillTargetId = target.id;
+
+    const speech = buildHunterFinalSpeech(hunter, state);
+
+    expect(speech).toContain(`${target.playerNumber}号`);
   });
 });

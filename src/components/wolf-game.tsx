@@ -15,32 +15,24 @@ import {
 } from '@/components/ui/dialog';
 import {
   UseWolfGameReturn,
-  loadWolfPlayersFromStorage,
   createDefaultWolfPlayer,
   saveWolfPlayersToStorage,
 } from '@/hooks/useWolfGame';
 import { WolfPlayer, WolfMessage } from '@/types';
 import {
-  Play,
-  RotateCcw,
-  Moon,
-  Sun,
-  UserPlus,
-  Eye,
-  EyeOff,
   Save,
   FolderOpen,
   Trash2,
-  FlaskConical,
-  Skull,
-  EyeIcon,
-  Users,
-  Trophy,
   Loader2,
-  MessageCircle,
   Swords,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { StagePanel } from '@/components/wolf-game/stage-panel';
+import { ActionPanel } from '@/components/wolf-game/action-panel';
+import { PlayersPanel } from '@/components/wolf-game/players-panel';
+import { TimelinePanel } from '@/components/wolf-game/timeline-panel';
+import { ViewModeToggle } from '@/components/wolf-game/view-mode-toggle';
+import { shouldAutoAdvanceWolfGame } from '@/components/wolf-game/auto-advance';
 // 预设接口
 interface WolfPlayerPreset {
   id: string;
@@ -62,9 +54,9 @@ export function WolfGame({ wolf }: WolfGameProps) {
     error,
     currentStreamingContent,
     currentMessageType,
-    votes,
     votingResults,
     pendingTransition,
+    uiEvents,
     addPlayer,
     updatePlayer,
     removePlayer,
@@ -97,6 +89,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
   const [presetDialogOpen, setPresetDialogOpen] = useState(false);
   const [presetName, setPresetName] = useState('');
   const [presetMode, setPresetMode] = useState<'save' | 'load'>('save');
+  const [viewMode, setViewMode] = useState<'player' | 'director'>('player');
 
   // 保存预设到 localStorage
   const savePresets = (newPresets: WolfPlayerPreset[]) => {
@@ -168,7 +161,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
   }, [error]);
 
   useEffect(() => {
-    if (!session || isLoading || pendingTransition || session.status === 'ended' || session.status === 'waiting') {
+    if (!shouldAutoAdvanceWolfGame(session, isLoading, pendingTransition)) {
       return;
     }
 
@@ -178,84 +171,6 @@ export function WolfGame({ wolf }: WolfGameProps) {
 
     return () => clearTimeout(timer);
   }, [session, isLoading, pendingTransition, nextAction]);
-
-  // 获取当前状态配置
-  const getStatusConfig = (status: string) => {
-    const configs: Record<string, { text: string; icon: React.ReactNode; color: string; bgColor: string }> = {
-      waiting: {
-        text: '等待开始',
-        icon: <Users className="w-4 h-4" />,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-100 border-gray-300'
-      },
-      night: {
-        text: '夜晚 - 女巫行动',
-        icon: <FlaskConical className="w-4 h-4" />,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100 border-blue-300'
-      },
-      night_witch: {
-        text: '夜晚 - 女巫行动',
-        icon: <FlaskConical className="w-4 h-4" />,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100 border-blue-300'
-      },
-      night_seer: {
-        text: '夜晚 - 预言家行动',
-        icon: <EyeIcon className="w-4 h-4" />,
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-100 border-purple-300'
-      },
-      night_werewolf: {
-        text: '夜晚 - 狼人行动',
-        icon: <Skull className="w-4 h-4" />,
-        color: 'text-red-600',
-        bgColor: 'bg-red-100 border-red-300'
-      },
-      werewolf_chat: {
-        text: '狼人密聊中',
-        icon: <MessageCircle className="w-4 h-4" />,
-        color: 'text-red-600',
-        bgColor: 'bg-red-100 border-red-300'
-      },
-      day: {
-        text: '白天 - 发言环节',
-        icon: <Sun className="w-4 h-4" />,
-        color: 'text-yellow-600',
-        bgColor: 'bg-yellow-100 border-yellow-300'
-      },
-      voting: {
-        text: '投票环节',
-        icon: <Swords className="w-4 h-4" />,
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-100 border-orange-300'
-      },
-      ended: {
-        text: '游戏结束',
-        icon: <Trophy className="w-4 h-4" />,
-        color: 'text-green-600',
-        bgColor: 'bg-green-100 border-green-300'
-      },
-    };
-    return configs[status] || {
-      text: status,
-      icon: null,
-      color: 'text-gray-600',
-      bgColor: 'bg-gray-100 border-gray-300'
-    };
-  };
-
-  // 获取玩家身份标签
-  const getRoleLabel = (role: string) => {
-            const roleMap: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-      villager: { label: '村民', color: 'bg-blue-100 text-blue-700 border-blue-300', icon: <Users className="w-3 h-3" /> },
-      werewolf: { label: '狼人', color: 'bg-red-100 text-red-700 border-red-300', icon: <Skull className="w-3 h-3" /> },
-      seer: { label: '预言家', color: 'bg-purple-100 text-purple-700 border-purple-300', icon: <EyeIcon className="w-3 h-3" /> },
-      witch: { label: '女巫', color: 'bg-pink-100 text-pink-700 border-pink-300', icon: <FlaskConical className="w-3 h-3" /> },
-      hunter: { label: '猎人', color: 'bg-amber-100 text-amber-700 border-amber-300', icon: <Swords className="w-3 h-3" /> },
-    };
-    return roleMap[role] || { label: role, color: 'bg-gray-100 text-gray-700 border-gray-300', icon: null };
-  };
 
   // 打开编辑弹窗
   const handleEditPlayer = (player: WolfPlayer) => {
@@ -298,22 +213,6 @@ export function WolfGame({ wolf }: WolfGameProps) {
     addPlayer(newPlayer);
   };
 
-  // 获取行动按钮标签
-  const getActionLabel = () => {
-    if (!session) return '继续';
-    switch (session.status) {
-      case 'waiting': return '开始第1晚';
-      case 'night':
-        case 'night_witch': return '女巫行动';
-      case 'night_seer': return '预言家验人';
-      case 'night_werewolf': return '狼人密聊';
-      case 'werewolf_chat': return '确认刀人';
-      case 'day': return '发言';
-      case 'voting': return '投票';
-      default: return '继续';
-    }
-  };
-
   // 获取加载中的提示文本
   const getLoadingText = (type: string) => {
     switch (type) {
@@ -326,265 +225,55 @@ export function WolfGame({ wolf }: WolfGameProps) {
     }
   };
 
-  const statusConfig = session ? getStatusConfig(session.status) : getStatusConfig('waiting');
-    const killedPlayer = session?.nightAction?.killedId
-      ? session.players.find(p => p.id === session.nightAction.killedId)
-      : null;
-    const killedPlayerName = killedPlayer?.name || '无人';
+  const displayPlayers = session ? session.players : players;
 
 
   return (
-    <div className="h-full flex flex-col gap-4">
-      {/* 游戏状态 */}
-      <Card className="border-2 shadow-lg">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              {session?.status === 'ended' ? (
-                <Trophy className="w-5 h-5 text-yellow-500" />
-              ) : session?.status?.startsWith('night') || session?.status === 'werewolf_chat' ? (
-                <Moon className="w-5 h-5 text-blue-500" />
-              ) : (
-                <Sun className="w-5 h-5 text-yellow-500" />
-              )}
-              狼人杀
-              {session && (
-                <span className="text-sm font-normal text-muted-foreground">
-                  第 {session.currentRound} 天
-                </span>
-              )}
-            </CardTitle>
-            <Badge
-              variant="outline"
-              className={`${statusConfig.bgColor} ${statusConfig.color} flex items-center gap-1`}
-            >
-              {statusConfig.icon}
-              {statusConfig.text}
-            </Badge>
+    <div className="h-full flex flex-col gap-4 animate-fade-in-up">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-3 space-y-4 wolf-stagger-1">
+          <div className="flex justify-end">
+            <ViewModeToggle viewMode={viewMode} onChange={setViewMode} />
           </div>
-        </CardHeader>
-
-        <CardContent>
-          {!session ? (
-            <div className="text-center py-6 space-y-4">
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p className="font-medium">8人标准局配置</p>
-                                  <div className="flex justify-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                      <Skull className="w-3 h-3 mr-1" />
-                      狼人 ×2
-                    </Badge>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                      <Users className="w-3 h-3 mr-1" />
-                      村民 ×3
-                    </Badge>
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                      <EyeIcon className="w-3 h-3 mr-1" />
-                      预言家 ×1
-                    </Badge>
-                    <Badge variant="outline" className="bg-pink-50 text-pink-700 border-pink-200">
-                      <FlaskConical className="w-3 h-3 mr-1" />
-                      女巫 ×1
-                    </Badge>
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                      <Swords className="w-3 h-3 mr-1" />
-                      猎人 ×1
-                    </Badge>
-                  </div>
-              </div>
-
-              <Button
-                onClick={initGame}
-                disabled={players.length !== 8 || isLoading}
-                size="lg"
-                className="w-full max-w-xs"
-              >
-                <Play className="w-4 h-4 mr-2" />
-                {players.length !== 8 ? `需要8名玩家 (${players.length}/8)` : '开始游戏'}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {/* 游戏进程控制 */}
-              {session.status !== 'ended' ? (
-                <div className="flex gap-2">
-                  {pendingTransition ? (
-                    <Button onClick={continueTransition} disabled={isLoading} className="flex-1" size="lg">
-                      {pendingTransition === 'to_day' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                      <span className="ml-2">{pendingTransition === 'to_day' ? '进入白天' : '进入黑夜'}</span>
-                    </Button>
-                  ) : session.status === 'waiting' ? (
-                    <Button onClick={nextAction} disabled={isLoading} className="flex-1" size="lg">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {getLoadingText(currentMessageType)}
-                        </>
-                      ) : (
-                        <>
-                          {statusConfig.icon}
-                          <span className="ml-2">{getActionLabel()}</span>
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button disabled className="flex-1" size="lg">
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {getLoadingText(currentMessageType)}
-                        </>
-                      ) : (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          自动进行中...
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  <Button variant="outline" onClick={resetGame} disabled={isLoading}>
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    重置
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4 space-y-4">
-                  <div className={`text-3xl font-bold ${session.winner === 'good' ? 'text-blue-600' : 'text-red-600'}`}>
-                    {session.winner === 'good' ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Trophy className="w-8 h-8" />
-                        好人阵营获胜！
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        <Skull className="w-8 h-8" />
-                        狼人阵营获胜！
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 显示身份揭晓 */}
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    {session.players.map(player => {
-                      const role = getRoleLabel(player.role);
-                      return (
-                        <div
-                          key={player.id}
-                          className={`p-2 rounded border ${role.color} ${!player.isAlive ? 'opacity-50 line-through' : ''}`}
-                        >
-                          <div className="flex items-center justify-center gap-1">
-                            {role.icon}
-                            <span className="font-medium">{player.name}</span>
-                          </div>
-                          <div className="text-xs">{role.label}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <Button onClick={resetGame} size="lg" className="w-full max-w-xs">
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    再来一局
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 玩家列表 */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center justify-between">
-            <span>玩家列表</span>
-            {session && (
-              <span className="text-muted-foreground font-normal">
-                {session.players.filter(p => p.isAlive).length} / 8 存活
-              </span>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[180px]">
-            <div className="grid grid-cols-2 gap-2">
-              {(session ? session.players : players)
-                .sort((a, b) => a.playerNumber - b.playerNumber)
-                .map((player) => {
-                  const role = getRoleLabel(player.role);
-                  return (
-                    <div
-                      key={player.id}
-                      className={`p-3 rounded-lg border-2 transition-all ${
-                        session?.status === 'ended'
-                          ? role.color
-                          : player.isAlive !== false
-                          ? 'bg-white dark:bg-gray-800 border-gray-200'
-                          : 'bg-gray-100 dark:bg-gray-900 opacity-60 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-muted-foreground">
-                            #{player.playerNumber}
-                          </span>
-                          <span className="font-medium text-sm">{player.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {session && session.status !== 'waiting' && session.status !== 'ended' && (
-                            <Badge variant="outline" className={`text-xs ${role.color}`}>
-                              {role.icon}
-                              <span className="ml-1">{role.label}</span>
-                            </Badge>
-                          )}
-                          {session && player.isAlive === false && (
-                            <Badge variant="outline" className="text-xs">已淘汰</Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => handleEditPlayer(player)}
-                          >
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                          {!session && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-red-500"
-                              onClick={() => removePlayer(player.id)}
-                            >
-                              <EyeOff className="w-3 h-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-
-            {!session && players.length < 8 && (
-              <Button
-                variant="outline"
-                className="w-full mt-2"
-                onClick={handleAddPlayer}
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                添加玩家
-              </Button>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+          <StagePanel
+            status={session?.status}
+            currentRound={session?.currentRound ?? 1}
+          />
+          <ActionPanel
+            status={session?.status}
+            isLoading={isLoading}
+            pendingTransition={pendingTransition}
+            currentMessageType={currentMessageType}
+            playerCount={players.length}
+            requiredPlayers={8}
+            onNextAction={() => {
+              void nextAction();
+            }}
+            onContinue={continueTransition}
+            onReset={resetGame}
+            onInit={initGame}
+          />
+        </div>
+        <div className="xl:col-span-4 wolf-stagger-2">
+          <PlayersPanel
+            players={displayPlayers}
+            showGameInfo={!!session}
+            onEditPlayer={handleEditPlayer}
+            onRemovePlayer={!session ? removePlayer : undefined}
+            onAddPlayer={!session ? handleAddPlayer : undefined}
+          />
+        </div>
+        <div className="xl:col-span-5 wolf-stagger-3">
+          <TimelinePanel events={uiEvents} viewMode={viewMode} />
+        </div>
+      </div>
 
       {/* 游戏记录与流式输出 */}
       {session && (
-        <Card className="flex-1">
+        <Card className="wolf-theme-panel flex-1 rounded-xl wolf-stagger-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center justify-between">
-              <span>游戏记录</span>
+              <span className="tracking-wide">游戏记录</span>
               {isLoading && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -615,7 +304,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
 
       {/* 投票结果展示 */}
       {session?.status === 'voting' && Object.keys(votingResults).length > 0 && (
-        <Card className="border-orange-200 bg-orange-50">
+        <Card className="rounded-xl border-amber-300 bg-gradient-to-br from-amber-50 to-orange-100 shadow-sm wolf-stagger-3">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Swords className="w-4 h-4" />
@@ -627,7 +316,7 @@ export function WolfGame({ wolf }: WolfGameProps) {
               {Object.entries(votingResults).map(([targetId, count]) => {
                 const target = session.players.find(p => p.id === targetId);
                 return (
-                  <Badge key={targetId} variant="outline" className="bg-white">
+                  <Badge key={targetId} variant="outline" className="bg-white/90 border-amber-300">
                     {target?.name || '未知'}: {count} 票
                   </Badge>
                 );
@@ -921,4 +610,6 @@ function StreamingBubble({
     </div>
   );
 }
+
+
 

@@ -10,7 +10,9 @@ interface ActionPanelProps {
   status: WolfGameStatus | undefined;
   isLoading: boolean;
   pendingTransition: 'to_day' | 'to_night' | null;
-  currentStreamingContent: string;
+  currentMessageType: 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'seer_action';
+  playerCount?: number;
+  requiredPlayers?: number;
   onNextAction: () => void;
   onContinue: () => void;
   onReset: () => void;
@@ -40,7 +42,9 @@ export function ActionPanel({
   status,
   isLoading,
   pendingTransition,
-  currentStreamingContent,
+  currentMessageType,
+  playerCount,
+  requiredPlayers = 8,
   onNextAction,
   onContinue,
   onReset,
@@ -52,46 +56,43 @@ export function ActionPanel({
   };
 
   const getLoadingMessage = () => {
-    return LOADING_MESSAGES.inner_thought || 'AI思考中...';
+    return LOADING_MESSAGES[currentMessageType] || 'AI思考中...';
   };
-
-  const isGameActive = status && status !== 'waiting' && status !== 'ended';
+  const canStartGame = typeof playerCount === 'number' ? playerCount === requiredPlayers : true;
+  const startLabel = canStartGame ? '开始游戏' : `需要${requiredPlayers}名玩家 (${playerCount ?? 0}/${requiredPlayers})`;
 
   return (
-    <Card>
+    <Card className="wolf-theme-panel rounded-xl">
       <CardHeader className="pb-2">
-        <CardTitle className="text-sm">游戏控制</CardTitle>
+        <CardTitle className="text-sm tracking-wide">游戏控制</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {!status || status === 'waiting' ? (
-            // Pre-game: show init button
             <Button
               onClick={onInit}
-              disabled={isLoading}
-              className="w-full"
+              disabled={isLoading || !canStartGame}
+              className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-amber-100 shadow"
               size="lg"
             >
               <Play className="w-4 h-4 mr-2" />
-              开始游戏
+              {startLabel}
             </Button>
           ) : status === 'ended' ? (
-            // Game ended: show reset button
             <Button
               onClick={onReset}
-              className="w-full"
+              className="w-full h-11 bg-emerald-700 hover:bg-emerald-600 text-white"
               size="lg"
             >
               <RotateCcw className="w-4 h-4 mr-2" />
               再来一局
             </Button>
           ) : pendingTransition ? (
-            // Transition pending: show continue button
             <div className="space-y-2">
               <Button
                 onClick={onContinue}
                 disabled={isLoading}
-                className="w-full"
+                className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-slate-950"
                 size="lg"
               >
                 {pendingTransition === 'to_day' ? (
@@ -110,25 +111,24 @@ export function ActionPanel({
                 variant="outline"
                 onClick={onReset}
                 disabled={isLoading}
-                className="w-full"
+                className="w-full border-slate-300 bg-white/70 hover:bg-white"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 重置
               </Button>
             </div>
           ) : (
-            // Active game: show next action button
             <div className="space-y-2">
               <Button
                 onClick={onNextAction}
                 disabled={isLoading}
-                className="w-full"
+                className="w-full h-11 bg-slate-900 hover:bg-slate-800 text-amber-100 shadow"
                 size="lg"
               >
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {currentStreamingContent || getLoadingMessage()}
+                    {getLoadingMessage()}
                   </>
                 ) : (
                   <>
@@ -145,7 +145,7 @@ export function ActionPanel({
                 variant="outline"
                 onClick={onReset}
                 disabled={isLoading}
-                className="w-full"
+                className="w-full border-slate-300 bg-white/70 hover:bg-white"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 重置

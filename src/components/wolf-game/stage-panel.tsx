@@ -12,56 +12,56 @@ interface StagePanelProps {
   currentRound: number;
 }
 
-const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; bgColor: string }> = {
+const STATUS_CONFIG: Record<string, { icon: React.ReactNode; color: string; chipClass: string }> = {
   waiting: {
     icon: <Users className="w-4 h-4" />,
-    color: 'text-gray-600',
-    bgColor: 'bg-gray-100 border-gray-300',
+    color: 'text-slate-700',
+    chipClass: 'bg-slate-100 border-slate-300',
   },
   night: {
     icon: <Moon className="w-4 h-4" />,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100 border-blue-300',
+    color: 'text-blue-900',
+    chipClass: 'wolf-stage-chip-night',
   },
   night_witch: {
     icon: <FlaskConical className="w-4 h-4" />,
-    color: 'text-pink-600',
-    bgColor: 'bg-pink-100 border-pink-300',
+    color: 'text-blue-900',
+    chipClass: 'wolf-stage-chip-night',
   },
   night_seer: {
     icon: <EyeIcon className="w-4 h-4" />,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-100 border-purple-300',
+    color: 'text-blue-900',
+    chipClass: 'wolf-stage-chip-night',
   },
   night_werewolf: {
     icon: <Skull className="w-4 h-4" />,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100 border-red-300',
+    color: 'text-blue-900',
+    chipClass: 'wolf-stage-chip-night',
   },
   werewolf_chat: {
     icon: <MessageCircle className="w-4 h-4" />,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100 border-red-300',
+    color: 'text-blue-900',
+    chipClass: 'wolf-stage-chip-night',
   },
   day: {
     icon: <Sun className="w-4 h-4" />,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100 border-yellow-300',
+    color: 'text-amber-900',
+    chipClass: 'wolf-stage-chip-day',
   },
   day_speech: {
     icon: <MessageCircle className="w-4 h-4" />,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100 border-yellow-300',
+    color: 'text-amber-900',
+    chipClass: 'wolf-stage-chip-day',
   },
   voting: {
     icon: <Swords className="w-4 h-4" />,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-100 border-orange-300',
+    color: 'text-orange-900',
+    chipClass: 'wolf-stage-chip-vote',
   },
   ended: {
     icon: <Trophy className="w-4 h-4" />,
-    color: 'text-green-600',
-    bgColor: 'bg-green-100 border-green-300',
+    color: 'text-emerald-800',
+    chipClass: 'bg-emerald-100 border-emerald-300',
   },
 };
 
@@ -70,21 +70,21 @@ export function StagePanel({ status, currentRound }: StagePanelProps) {
   const label = status ? getPhaseLabel(status) : '等待开始';
 
   return (
-    <Card>
+    <Card className="wolf-theme-panel rounded-xl">
       <CardHeader className="pb-2">
         <CardTitle className="text-sm flex items-center justify-between">
-          <span>当前阶段</span>
+          <span className="tracking-wide">当前阶段</span>
           {status && status !== 'waiting' && status !== 'ended' && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs border-slate-300 bg-white/70">
               第 {currentRound} 天
             </Badge>
           )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className={`flex items-center gap-2 p-3 rounded-lg border-2 ${config.bgColor}`}>
+        <div className={`flex items-center gap-2 p-3 rounded-xl border-2 shadow-sm ${config.chipClass}`}>
           {config.icon}
-          <span className={`font-medium ${config.color}`}>{label}</span>
+          <span className={`font-semibold tracking-wide ${config.color}`}>{label}</span>
         </div>
       </CardContent>
     </Card>

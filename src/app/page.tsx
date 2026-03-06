@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,7 +22,6 @@ import { AgentForm } from '@/components/agent-form';
 import { MessageBubble } from '@/components/message-bubble';
 import { DebateControls } from '@/components/debate-controls';
 import { DebaterForm } from '@/components/debater-form';
-import { WolfGame } from '@/components/wolf-game';
 import {
   useDebate,
   loadAgentsFromStorage,
@@ -33,7 +33,6 @@ import {
   saveProDebatersToStorage,
   saveConDebatersToStorage,
 } from '@/hooks/useDebate';
-import { useWolfGame } from '@/hooks/useWolfGame';
 import { AgentConfig, Stance, DEFAULT_MODELS, Debater, DebaterRole, TeamSide, DEBATE_FLOW } from '@/types';
 import {
   Plus,
@@ -45,17 +44,10 @@ import {
   Download,
   Users2,
   HelpCircle,
-  Ghost,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-// 游戏模式类型
-type GameMode = 'debate' | 'wolf';
-
 export default function Home() {
-  // 游戏模式
-  const [gameMode, setGameMode] = useState<GameMode>('debate');
-
   // Agent state
   const [agents, setAgents] = useState<AgentConfig[]>(() => {
     const savedAgents = loadAgentsFromStorage();
@@ -133,10 +125,6 @@ export default function Home() {
     startNextFreeDebateRound,
     handleFreeDebateSkip,
   } = useDebate();
-
-  // Wolf game hook
-  const wolf = useWolfGame();
-
 
   // Auto-generate next turn when running
   useEffect(() => {
@@ -346,37 +334,23 @@ export default function Home() {
         <div className="container flex items-center justify-center gap-4">
           <span className="text-white/80 text-sm">选择游戏模式：</span>
           <div className="flex gap-2">
-            <Button
-              variant={gameMode === 'debate' ? 'default' : 'outline'}
-              size="sm"
-              className={gameMode === 'debate' ? 'bg-white text-blue-600 hover:bg-white/90' : 'text-white border-white/30 hover:bg-white/10'}
-              onClick={() => setGameMode('debate')}
-            >
-              <MessageSquare className="w-4 h-4 mr-2" />
-              AI辩论
+            <Button variant="default" size="sm" className="bg-white text-blue-600 hover:bg-white/90" asChild>
+              <Link href="/">
+                <MessageSquare className="w-4 h-4 mr-2" />
+                AI辩论
+              </Link>
             </Button>
-            <Button
-              variant={gameMode === 'wolf' ? 'default' : 'outline'}
-              size="sm"
-              className={gameMode === 'wolf' ? 'bg-white text-red-600 hover:bg-white/90' : 'text-white border-white/30 hover:bg-white/10'}
-              onClick={() => setGameMode('wolf')}
-            >
-              <Ghost className="w-4 h-4 mr-2" />
-              狼人杀
+            <Button variant="outline" size="sm" className="text-white border-white/30 hover:bg-white/10" asChild>
+              <Link href="/wolf">
+                狼人杀
+              </Link>
             </Button>
           </div>
         </div>
       </div>
 
       <main className="flex-1 container py-6 px-4">
-        {gameMode === 'wolf' ? (
-          /* Wolf Game Mode */
-          <div className="h-[calc(100vh-12rem)]">
-            <WolfGame wolf={wolf} />
-          </div>
-        ) : (
-          /* Debate Mode */
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
             {/* Left Panel - Configuration */}
             <div className="flex flex-col gap-4 overflow-hidden">
             {/* Topic Input */}
@@ -890,8 +864,7 @@ export default function Home() {
               )}
             </CardContent>
           </Card>
-          </div>
-        )}
+        </div>
       </main>
 
       {/* Agent Dialog */}

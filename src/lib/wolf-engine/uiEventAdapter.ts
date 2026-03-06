@@ -84,7 +84,7 @@ export function deriveUiEvents(
           playerId: prevPlayer.id,
           playerName: prevPlayer.name,
           reason: 'wolf_kill',
-          publicText: `${prevPlayer.name} 被狼人击杀`,
+          publicText: `昨夜死亡：${prevPlayer.name}`,
           directorText: `${prevPlayer.name} (${prevPlayer.role}) 被狼人击杀`,
         })
       );
@@ -95,6 +95,7 @@ export function deriveUiEvents(
   if (next.nightAction.killedId && prev.nightAction.killedId !== next.nightAction.killedId) {
     const killedPlayer = next.players.find(p => p.id === next.nightAction.killedId);
     if (killedPlayer) {
+      const wasBlocked = next.nightAction.healedId === killedPlayer.id;
       events.push(
         createUiEvent('night_action', {
           gameId: next.id,
@@ -102,9 +103,11 @@ export function deriveUiEvents(
           actionType: 'wolf_kill',
           targetId: killedPlayer.id,
           targetName: killedPlayer.name,
-          result: next.nightAction.healedId === killedPlayer.id ? 'blocked' : 'success',
-          publicText: `狼人击杀了 ${killedPlayer.name}`,
-          directorText: `狼人击杀了 ${killedPlayer.name} (${killedPlayer.role})`,
+          result: wasBlocked ? 'blocked' : 'success',
+          publicText: wasBlocked ? '昨夜是平安夜' : `昨夜死亡：${killedPlayer.name}`,
+          directorText: wasBlocked
+            ? `狼人刀向 ${killedPlayer.name} (${killedPlayer.role})，被女巫解药阻止`
+            : `狼人击杀了 ${killedPlayer.name} (${killedPlayer.role})`,
         })
       );
     }
@@ -122,7 +125,7 @@ export function deriveUiEvents(
           targetId: checkedPlayer.id,
           targetName: checkedPlayer.name,
           result: 'success',
-          publicText: `预言家查验了 ${checkedPlayer.name}`,
+          publicText: '夜晚行动已结算',
           directorText: `预言家查验 ${checkedPlayer.name} 为 ${isEvil ? '狼人' : '好人'}`,
         })
       );
@@ -153,7 +156,7 @@ export function deriveUiEvents(
       next.status !== 'voting') {
     const maxVotes = Math.max(...Object.values(next.votingResults));
     const topVoted = Object.entries(next.votingResults)
-      .filter(([_, votes]) => votes === maxVotes)
+      .filter(([, votes]) => votes === maxVotes)
       .map(([playerId, votes]) => {
         const player = next.players.find(p => p.id === playerId);
         return { playerId, playerName: player?.name || playerId, votes };

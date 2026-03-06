@@ -7,7 +7,8 @@ import { getProductionStrategyId } from './runtime';
 describe('strategy runtime', () => {
   const reportPath = resolve(process.cwd(), 'reports', 'production-strategy.json');
   const strategyDir = resolve(process.cwd(), 'reports', 'strategies');
-  const candidateStrategyPath = resolve(strategyDir, 'strategy-baseline-v1-candidate.strategy.json');
+  const candidateId = 'strategy-runtime-test-candidate';
+  const candidateStrategyPath = resolve(strategyDir, `${candidateId}.strategy.json`);
 
   afterEach(() => {
     if (existsSync(reportPath)) {
@@ -36,11 +37,11 @@ describe('strategy runtime', () => {
 
   it('allows registry to load promoted strategy id from runtime report', () => {
     mkdirSync(strategyDir, { recursive: true });
-    writeFileSync(reportPath, JSON.stringify({ strategyId: 'strategy-baseline-v1-candidate' }), 'utf-8');
+    writeFileSync(reportPath, JSON.stringify({ strategyId: candidateId }), 'utf-8');
     writeFileSync(
       candidateStrategyPath,
       JSON.stringify({
-        id: 'strategy-baseline-v1-candidate',
+        id: candidateId,
         parentId: 'strategy-baseline-v1',
         createdAt: '2026-03-06T00:00:00.000Z',
         wolf: { aggressiveness: 0.7, promptSuffix: 'candidate wolf' },
@@ -50,6 +51,6 @@ describe('strategy runtime', () => {
     );
 
     const strategy = loadStrategyById(getProductionStrategyId());
-    expect(strategy.id).toBe('strategy-baseline-v1-candidate');
+    expect(strategy.id).toBe(candidateId);
   });
 });

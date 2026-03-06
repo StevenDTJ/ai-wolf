@@ -242,3 +242,107 @@
   background: hsl(var(--primary) / 0.2);
   color: hsl(var(--foreground));
 }
+
+/* Wolf game visual theme */
+.wolf-theme {
+  background:
+    radial-gradient(circle at 15% 10%, hsl(214 66% 22% / 0.28), transparent 38%),
+    radial-gradient(circle at 82% 18%, hsl(15 80% 55% / 0.16), transparent 36%),
+    linear-gradient(180deg, hsl(222 45% 10%) 0%, hsl(214 35% 13%) 52%, hsl(210 28% 16%) 100%);
+}
+
+.wolf-theme-panel {
+  background: linear-gradient(160deg, hsl(0 0% 100% / 0.96), hsl(40 16% 97% / 0.92));
+  border: 1px solid hsl(210 30% 86% / 0.6);
+  box-shadow:
+    0 8px 28px hsl(220 60% 5% / 0.12),
+    inset 0 1px 0 hsl(0 0% 100% / 0.7);
+}
+
+.wolf-theme-topbar {
+  background: linear-gradient(90deg, hsl(222 52% 17%), hsl(215 46% 24%), hsl(20 80% 42%));
+  border-bottom: 1px solid hsl(210 25% 90% / 0.2);
+}
+
+.wolf-stage-chip-night {
+  background: linear-gradient(120deg, hsl(220 85% 91%), hsl(215 95% 85%));
+  border-color: hsl(219 82% 70%);
+}
+
+.wolf-stage-chip-day {
+  background: linear-gradient(120deg, hsl(42 100% 92%), hsl(32 100% 84%));
+  border-color: hsl(35 96% 66%);
+}
+
+.wolf-stage-chip-vote {
+  background: linear-gradient(120deg, hsl(20 100% 93%), hsl(10 100% 88%));
+  border-color: hsl(12 88% 70%);
+}
+
+@keyframes wolfAmbientPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+}
+
+@keyframes wolfStaggerRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wolf-ambient-orb {
+  animation: wolfAmbientPulse 8s ease-in-out infinite;
+  transition:
+    background-color 320ms ease,
+    opacity 320ms ease,
+    box-shadow 320ms ease;
+}
+
+.wolf-stagger-1 {
+  animation: wolfStaggerRise 360ms ease-out 0.04s both;
+}
+
+.wolf-stagger-2 {
+  animation: wolfStaggerRise 360ms ease-out 0.12s both;
+}
+
+.wolf-stagger-3 {
+  animation: wolfStaggerRise 360ms ease-out 0.2s both;
+}
+
+@keyframes wolfCriticalPop {
+  0% {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+    box-shadow: 0 0 0 hsl(40 95% 65% / 0);
+  }
+  55% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0.8rem hsl(40 95% 65% / 0.22);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 hsl(40 95% 65% / 0);
+  }
+}
+
+.wolf-event-critical {
+  animation: wolfCriticalPop 560ms ease-out both;
+}

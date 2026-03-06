@@ -1,7 +1,6 @@
 // 狼人杀 AI 调用封装
 import { WolfPlayer, WolfMessage } from '@/types';
 import { NightContext, DaySpeechContext } from './types';
-import { getAliveRoleTypes } from './gameLogic';
 import {
   getSeerPrompt,
   getWitchPrompt,
@@ -35,6 +34,8 @@ export interface VoteDecisionResult {
   targetId: string;
   reason?: string;
 }
+
+const PUBLIC_ROLE_SETUP = '村民、狼人、预言家、女巫、猎人';
 
 // ==================== 辅助函数 ====================
 
@@ -455,7 +456,7 @@ const prompt = getDaySpeechPrompt(
     { name: player.name, role: player.role, teammates: teammatesStr },
     {
       alivePlayers: alivePlayersStr,
-      aliveRoleTypes: getAliveRoleTypes(context.alivePlayers),
+      aliveRoleTypes: PUBLIC_ROLE_SETUP,
       lastKilled,
       round: context.currentRound,
     }
@@ -494,7 +495,7 @@ export async function generateVoteDecision(
     { name: player.name, role: player.role },
     {
       alivePlayers: alivePlayersStr,
-      aliveRoleTypes: getAliveRoleTypes(context.alivePlayers),
+      aliveRoleTypes: PUBLIC_ROLE_SETUP,
       speeches: speechesStr,
     }
   );

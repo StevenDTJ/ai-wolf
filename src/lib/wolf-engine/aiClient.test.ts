@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { generateFinalSpeech, generateWerewolfChat } from './aiClient';
+import { generateDaySpeech, generateFinalSpeech, generateVoteDecision, generateWerewolfChat } from './aiClient';
 import { WolfPlayer } from '@/types';
-import { NightContext } from './types';
+import { DaySpeechContext, NightContext } from './types';
 
 function makePlayer(overrides: Partial<WolfPlayer> = {}): WolfPlayer {
   return {
@@ -142,5 +142,83 @@ describe('aiClient privacy and context', () => {
     const prompt: string = requestBody.messages[1].content;
     expect(prompt).toContain('昨夜死亡：玩家2');
     expect(prompt).not.toContain('昨晚无人死亡');
+  });
+
+  it('uses fixed public role setup in day speech prompt', async () => {
+    const speaker = makePlayer({ id: 'p1', role: 'villager' });
+    const wolf = makePlayer({ id: 'p2', role: 'werewolf', playerNumber: 2, name: '玩家2' });
+    const seer = makePlayer({ id: 'p3', role: 'seer', playerNumber: 3, name: '玩家3', isAlive: false });
+    const witch = makePlayer({ id: 'p4', role: 'witch', playerNumber: 4, name: '玩家4', isAlive: false });
+    const hunter = makePlayer({ id: 'p5', role: 'hunter', playerNumber: 5, name: '玩家5', isAlive: false });
+    const villager = makePlayer({ id: 'p6', role: 'villager', playerNumber: 6, name: '玩家6' });
+    const mockFetch = mockFetchWithContent('我是好人，请相信我。');
+
+    const context: DaySpeechContext = {
+      currentRound: 3,
+      players: [speaker, wolf, seer, witch, hunter, villager],
+      alivePlayers: [speaker, wolf, villager],
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: null,
+        healedId: null,
+        poisonedId: null,
+      },
+      previousSpeeches: [],
+      publicInfo: {
+        speeches: [],
+        votes: [],
+        systemBroadcasts: [],
+        timeline: [],
+      },
+      privateInfo: {},
+    };
+
+    await generateDaySpeech(speaker, context);
+
+    const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    const prompt: string = requestBody.messages[1].content;
+    expect(prompt).toContain('场上存活角色类型：村民、狼人、预言家、女巫、猎人');
+    expect(prompt).not.toMatch(/场上存活角色类型：村民、狼人\s*$/m);
+  });
+
+  it('uses fixed public role setup in vote prompt', async () => {
+    const voter = makePlayer({ id: 'p1', role: 'villager' });
+    const wolf = makePlayer({ id: 'p2', role: 'werewolf', playerNumber: 2, name: '玩家2' });
+    const seer = makePlayer({ id: 'p3', role: 'seer', playerNumber: 3, name: '玩家3', isAlive: false });
+    const witch = makePlayer({ id: 'p4', role: 'witch', playerNumber: 4, name: '玩家4', isAlive: false });
+    const hunter = makePlayer({ id: 'p5', role: 'hunter', playerNumber: 5, name: '玩家5', isAlive: false });
+    const villager = makePlayer({ id: 'p6', role: 'villager', playerNumber: 6, name: '玩家6' });
+    const mockFetch = mockFetchWithContent('我投票给2号玩家。');
+
+    const context: DaySpeechContext = {
+      currentRound: 3,
+      players: [voter, wolf, seer, witch, hunter, villager],
+      alivePlayers: [voter, wolf, villager],
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: null,
+        healedId: null,
+        poisonedId: null,
+      },
+      previousSpeeches: [],
+      publicInfo: {
+        speeches: [],
+        votes: [],
+        systemBroadcasts: [],
+        timeline: [],
+      },
+      privateInfo: {},
+    };
+
+    await generateVoteDecision(voter, context);
+
+    const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    const prompt: string = requestBody.messages[1].content;
+    expect(prompt).toContain('场上存活角色类型：村民、狼人、预言家、女巫、猎人');
+    expect(prompt).not.toMatch(/场上存活角色类型：村民、狼人\s*$/m);
   });
 });

@@ -105,7 +105,7 @@ function assertInvariant(state: WolfGameState, seed: number, phase: string): Sim
   };
 }
 
-function runSingleGame(seed: number): { terminated: boolean; failure: SimulationFailure | null } {
+export function runSingleDeterministicGame(seed: number): { terminated: boolean; failure: SimulationFailure | null } {
   const rng = createRng(seed);
   let state = createInitialState(seed);
 
@@ -233,7 +233,7 @@ export function runSimulation(options: { games: number; seedStart?: number }): S
 
   for (let index = 0; index < options.games; index++) {
     const seed = seedStart + index;
-    const { terminated, failure } = runSingleGame(seed);
+    const { terminated, failure } = runSingleDeterministicGame(seed);
     if (failure) {
       failures.push(failure);
       continue;

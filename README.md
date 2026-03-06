@@ -35,6 +35,24 @@ This command runs in order:
 
 Any failure exits with non-zero status.
 
+## Self-Play Workflow
+
+Run deterministic self-play evaluation and promotion decision:
+
+```bash
+npm run selfplay:eval
+npm run selfplay:promote
+```
+
+- `selfplay:eval` writes `reports/selfplay-eval-report.json`
+- `selfplay:promote` reads eval report and writes `reports/selfplay-promotion-decision.json`
+
+Set runtime production strategy id with:
+
+```bash
+WOLF_STRATEGY_ID=strategy-baseline-v1
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

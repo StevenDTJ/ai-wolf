@@ -1,0 +1,12 @@
+{
+  "id": "strategy-baseline-v1",
+  "createdAt": "2026-03-06T00:00:00.000Z",
+  "wolf": {
+    "promptSuffix": "默认狼人策略",
+    "aggressiveness": 0.5
+  },
+  "good": {
+    "promptSuffix": "默认好人策略",
+    "aggressiveness": 0.5
+  }
+}

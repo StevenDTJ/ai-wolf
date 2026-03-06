@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Ignore sibling git worktrees managed under the repo root.
+    ".worktrees/**",
   ]),
 ]);
 

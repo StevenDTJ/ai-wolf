@@ -9,6 +9,8 @@ import {
   getVotePrompt,
   getFinalSpeechPrompt,
 } from './prompts';
+import { loadStrategyById } from './strategy/registry';
+import { getProductionStrategyId } from './strategy/runtime';
 
 // ==================== 类型定义 ====================
 
@@ -36,6 +38,21 @@ export interface VoteDecisionResult {
 }
 
 const PUBLIC_ROLE_SETUP = '村民、狼人、预言家、女巫、猎人';
+
+function resolveSystemPrompt(player: WolfPlayer): string {
+  const basePrompt = player.systemPrompt;
+
+  try {
+    const strategy = loadStrategyById(getProductionStrategyId());
+    const suffix = player.role === 'werewolf' ? strategy.wolf.promptSuffix : strategy.good.promptSuffix;
+    if (!suffix) {
+      return basePrompt;
+    }
+    return `${basePrompt}\n${suffix}`.trim();
+  } catch {
+    return basePrompt;
+  }
+}
 
 // ==================== 辅助函数 ====================
 
@@ -74,7 +91,7 @@ async function callAI(
   const body = {
     model: player.model,
     messages: [
-      { role: 'system', content: player.systemPrompt },
+      { role: 'system', content: resolveSystemPrompt(player) },
       { role: 'user', content: prompt },
     ],
     temperature,
@@ -122,7 +139,7 @@ async function callAIStream(
   const body = {
     model: player.model,
     messages: [
-      { role: 'system', content: player.systemPrompt },
+      { role: 'system', content: resolveSystemPrompt(player) },
       { role: 'user', content: prompt },
     ],
     stream: true,

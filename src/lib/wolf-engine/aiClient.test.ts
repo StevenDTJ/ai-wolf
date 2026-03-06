@@ -37,6 +37,7 @@ function mockFetchWithContent(content: string) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -220,5 +221,34 @@ describe('aiClient privacy and context', () => {
     const prompt: string = requestBody.messages[1].content;
     expect(prompt).toContain('场上存活角色类型：村民、狼人、预言家、女巫、猎人');
     expect(prompt).not.toMatch(/场上存活角色类型：村民、狼人\s*$/m);
+  });
+
+  it('uses production strategy bundle prompts by strategy id', async () => {
+    vi.stubEnv('WOLF_STRATEGY_ID', 'strategy-baseline-v1');
+    const player = makePlayer({ role: 'villager', systemPrompt: 'base-system' });
+    const mockFetch = mockFetchWithContent('发言');
+
+    const context: DaySpeechContext = {
+      currentRound: 1,
+      players: [player],
+      alivePlayers: [player],
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: null,
+        healedId: null,
+        poisonedId: null,
+      },
+      previousSpeeches: [],
+      publicInfo: { speeches: [], votes: [], systemBroadcasts: [], timeline: [] },
+      privateInfo: {},
+    };
+
+    await generateDaySpeech(player, context);
+
+    const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    const systemPrompt: string = requestBody.messages[0].content;
+    expect(systemPrompt).toContain('默认好人策略');
   });
 });

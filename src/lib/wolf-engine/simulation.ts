@@ -22,6 +22,11 @@ export interface SimulationResult {
   terminatedGames: number;
 }
 
+export interface DeterministicStrategyInput {
+  wolfAggressiveness?: number;
+  goodAggressiveness?: number;
+}
+
 function createRng(seed: number): () => number {
   let state = (seed >>> 0) + 1;
   return () => {
@@ -36,6 +41,12 @@ function pickOne<T>(items: T[], rng: () => number): T | null {
   }
   const index = Math.floor(rng() * items.length);
   return items[index];
+}
+
+function clamp01(value: number): number {
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
 }
 
 function createPlayers(seed: number): WolfPlayer[] {
@@ -105,7 +116,12 @@ function assertInvariant(state: WolfGameState, seed: number, phase: string): Sim
   };
 }
 
-export function runSingleDeterministicGame(seed: number): { terminated: boolean; failure: SimulationFailure | null } {
+export function runSingleDeterministicGame(
+  seed: number,
+  strategy: DeterministicStrategyInput = {}
+): { terminated: boolean; failure: SimulationFailure | null; winner: 'good' | 'evil' | null } {
+  const wolfAgg = clamp01(strategy.wolfAggressiveness ?? 0.5);
+  const goodAgg = clamp01(strategy.goodAggressiveness ?? 0.5);
   const rng = createRng(seed);
   let state = createInitialState(seed);
 
@@ -115,10 +131,17 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
     const aliveGood = alivePlayers.filter(player => player.role !== 'werewolf');
 
     if (aliveWolves.length === 0 || aliveGood.length === 0) {
-      return { terminated: true, failure: null };
+      const winner = checkWinCondition(state);
+      return { terminated: true, failure: null, winner };
     }
 
-    const wolfTarget = pickOne(aliveGood, rng);
+    let wolfTarget = pickOne(aliveGood, rng);
+    if (wolfAgg >= 0.65) {
+      const highValueTargets = aliveGood.filter(player =>
+        player.role === 'seer' || player.role === 'witch' || player.role === 'hunter'
+      );
+      wolfTarget = pickOne(highValueTargets, rng) ?? wolfTarget;
+    }
     state = {
       ...state,
       status: 'werewolf_chat',
@@ -126,7 +149,7 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
     state = processWerewolfKill(state, wolfTarget?.id ?? null);
     const afterKillFailure = assertInvariant(state, seed, 'after_werewolf_kill');
     if (afterKillFailure) {
-      return { terminated: false, failure: afterKillFailure };
+      return { terminated: false, failure: afterKillFailure, winner: null };
     }
 
     const witch = getAlivePlayers(state).find(player => player.role === 'witch');
@@ -138,9 +161,9 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
       let decision: 'save' | 'poison' | 'none' = 'none';
       let targetId: string | null = null;
 
-      if (!state.witchSaveUsed && state.nightAction.killedId && rng() < 0.35) {
+      if (!state.witchSaveUsed && state.nightAction.killedId && rng() < 0.2 + goodAgg * 0.45) {
         decision = 'save';
-      } else if (!state.witchPoisonUsed && rng() < 0.2) {
+      } else if (!state.witchPoisonUsed && rng() < 0.05 + goodAgg * 0.3) {
         const poisonTargets = getAlivePlayers(state).filter(
           player => player.id !== witch.id && player.id !== state.nightAction.killedId
         );
@@ -162,18 +185,28 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
     };
     const afterWitchFailure = assertInvariant(state, seed, 'after_witch');
     if (afterWitchFailure) {
-      return { terminated: false, failure: afterWitchFailure };
+      return { terminated: false, failure: afterWitchFailure, winner: null };
     }
 
     const winnerAfterNight = checkWinCondition(state);
     if (winnerAfterNight) {
-      return { terminated: true, failure: null };
+      return { terminated: true, failure: null, winner: winnerAfterNight };
     }
 
     const daytimeAlive = getAlivePlayers(state);
     const voteInputs = daytimeAlive.map(voter => {
       const candidates = daytimeAlive.filter(player => player.id !== voter.id);
-      const target = pickOne(candidates, rng);
+      const wolfCandidates = candidates.filter(player => player.role === 'werewolf');
+      const goodCandidates = candidates.filter(player => player.role !== 'werewolf');
+
+      let target = pickOne(candidates, rng);
+      if (voter.role !== 'werewolf' && goodAgg >= 0.65 && wolfCandidates.length > 0 && rng() < 0.75) {
+        target = pickOne(wolfCandidates, rng);
+      }
+      if (voter.role === 'werewolf' && wolfAgg >= 0.65 && goodCandidates.length > 0 && rng() < 0.75) {
+        target = pickOne(goodCandidates, rng);
+      }
+
       return {
         voterId: voter.id,
         voterName: voter.name,
@@ -197,12 +230,12 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
 
     const afterVoteFailure = assertInvariant(state, seed, 'after_vote');
     if (afterVoteFailure) {
-      return { terminated: false, failure: afterVoteFailure };
+      return { terminated: false, failure: afterVoteFailure, winner: null };
     }
 
     const winner = checkWinCondition(state);
     if (winner) {
-      return { terminated: true, failure: null };
+      return { terminated: true, failure: null, winner };
     }
 
     state = startNextRound({
@@ -213,7 +246,7 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
 
     const afterRoundFailure = assertInvariant(state, seed, 'after_start_next_round');
     if (afterRoundFailure) {
-      return { terminated: false, failure: afterRoundFailure };
+      return { terminated: false, failure: afterRoundFailure, winner: null };
     }
   }
 
@@ -223,6 +256,7 @@ export function runSingleDeterministicGame(seed: number): { terminated: boolean;
       seed,
       reason: 'max_steps_exceeded',
     },
+    winner: null,
   };
 }
 

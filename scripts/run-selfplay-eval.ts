@@ -2,70 +2,91 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+}
+
 function clamp01(value) {
   if (value < 0) return 0;
   if (value > 1) return 1;
   return value;
 }
 
-function scoreCandidate(metrics) {
-  return 0.45 * metrics.winRate + 0.3 * metrics.keyDecision + 0.25 * metrics.robustness - metrics.violationPenalty;
-}
+async function main() {
+  const { runSelfPlayBatch } = await import('../src/lib/wolf-engine/selfplay/runner.ts');
+  const { evaluateSelfPlayBatch } = await import('../src/lib/wolf-engine/selfplay/evaluator.ts');
 
-function runDeterministic(seed) {
-  let state = (seed >>> 0) + 1;
-  const next = () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 4294967296;
+  const strategyPath = path.resolve(__dirname, '../src/lib/wolf-engine/strategy/__fixtures__/baseline.strategy.json');
+  const baseline = readJson(strategyPath);
+
+  const candidate = {
+    ...baseline,
+    id: `${baseline.id}-candidate`,
+    parentId: baseline.id,
+    createdAt: new Date().toISOString(),
+    wolf: {
+      ...baseline.wolf,
+      aggressiveness: clamp01((baseline.wolf?.aggressiveness ?? 0.5) + 0.08),
+      promptSuffix: `${baseline.wolf?.promptSuffix ?? ''} [candidate]`.trim(),
+    },
+    good: {
+      ...baseline.good,
+      aggressiveness: clamp01((baseline.good?.aggressiveness ?? 0.5) - 0.04),
+      promptSuffix: `${baseline.good?.promptSuffix ?? ''} [candidate]`.trim(),
+    },
   };
 
-  const roll = next();
-  if (roll < 0.05) {
-    return { terminated: false, failureReason: 'simulated_failure' };
-  }
-  return { terminated: true, failureReason: null };
-}
+  const seeds = Array.from({ length: 20 }, (_, idx) => idx);
 
-function main() {
-  const strategyPath = path.resolve(__dirname, '../src/lib/wolf-engine/strategy/__fixtures__/baseline.strategy.json');
-  const baseline = JSON.parse(fs.readFileSync(strategyPath, 'utf-8'));
-
-  const seeds = [0, 1, 2, 3, 4];
-  const games = seeds.map(seed => {
-    const game = runDeterministic(seed);
-    return {
-      seed,
-      wolfStrategyId: baseline.id,
-      goodStrategyId: baseline.id,
-      terminated: game.terminated,
-      failureReason: game.failureReason,
-    };
+  const baselineBatch = runSelfPlayBatch({
+    seeds,
+    wolfStrategyId: baseline.id,
+    goodStrategyId: baseline.id,
+    wolfStrategy: baseline.wolf,
+    goodStrategy: baseline.good,
   });
 
-  const terminated = games.filter(game => game.terminated).length;
-  const violations = games.length - terminated;
-  const metrics = {
-    winRate: clamp01(terminated / games.length),
-    keyDecision: 0.6,
-    robustness: clamp01(1 - violations / games.length),
-    violations,
-    violationPenalty: violations > 0 ? 1 : 0,
-  };
+  const candidateBatch = runSelfPlayBatch({
+    seeds,
+    wolfStrategyId: candidate.id,
+    goodStrategyId: baseline.id,
+    wolfStrategy: candidate.wolf,
+    goodStrategy: baseline.good,
+  });
 
-  const report = {
-    generatedAt: new Date().toISOString(),
-    baselineStrategyId: baseline.id,
-    metrics,
-    score: scoreCandidate(metrics),
-    games,
-  };
+  const baselineEval = evaluateSelfPlayBatch(baselineBatch);
+  const candidateEval = evaluateSelfPlayBatch(candidateBatch);
 
   const outDir = path.resolve(__dirname, '../reports');
   fs.mkdirSync(outDir, { recursive: true });
-  const outFile = path.join(outDir, 'selfplay-eval-report.json');
-  fs.writeFileSync(outFile, JSON.stringify(report, null, 2), 'utf-8');
-  console.log(`[selfplay-eval] report written: ${outFile}`);
-  console.log(`[selfplay-eval] score=${report.score.toFixed(4)} violations=${violations}/${games.length}`);
+
+  const baselineReport = {
+    generatedAt: new Date().toISOString(),
+    strategyId: baseline.id,
+    opponentStrategyId: baseline.id,
+    metrics: baselineEval.metrics,
+    score: baselineEval.score,
+    games: baselineBatch.games,
+  };
+
+  const candidateReport = {
+    generatedAt: new Date().toISOString(),
+    strategyId: candidate.id,
+    opponentStrategyId: baseline.id,
+    metrics: candidateEval.metrics,
+    score: candidateEval.score,
+    games: candidateBatch.games,
+  };
+
+  const baselineOutFile = path.join(outDir, 'selfplay-eval-baseline.json');
+  const candidateOutFile = path.join(outDir, 'selfplay-eval-candidate.json');
+  fs.writeFileSync(baselineOutFile, JSON.stringify(baselineReport, null, 2), 'utf-8');
+  fs.writeFileSync(candidateOutFile, JSON.stringify(candidateReport, null, 2), 'utf-8');
+
+  console.log(`[selfplay-eval] baseline report: ${baselineOutFile}`);
+  console.log(`[selfplay-eval] candidate report: ${candidateOutFile}`);
+  console.log(`[selfplay-eval] baseline score=${baselineReport.score.toFixed(4)}`);
+  console.log(`[selfplay-eval] candidate score=${candidateReport.score.toFixed(4)}`);
 }
 
 main();

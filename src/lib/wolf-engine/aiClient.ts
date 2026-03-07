@@ -10,6 +10,10 @@ import {
   getFinalSpeechPrompt,
 } from './prompts';
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof Error && err.name === 'AbortError';
+}
+
 // ==================== 类型定义 ====================
 
 // 夜晚行动结果
@@ -162,6 +166,9 @@ async function callAI(
     return extractContentFromResponse(data);
   } catch (err) {
     clearTimeout(timeoutId);
+    if (isAbortError(err)) {
+      throw new Error('AI请求超时，请重试');
+    }
     throw err;
   }
 }
@@ -342,7 +349,9 @@ export async function generateWitchAction(
 
     return { decision, targetId, reasoning };
   } catch (err) {
-    console.error('女巫AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('女巫AI调用失败:', err);
+    }
     return { decision: 'none', targetId: null, reasoning: '' };
   }
 }
@@ -398,7 +407,9 @@ export async function generateSeerAction(
       reasoning: reasoning || `查验了 ${checkedPlayerName}`,
     };
   } catch (err) {
-    console.error('预言家AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('预言家AI调用失败:', err);
+    }
     const validTargets = context.alivePlayers.filter(p => p.id !== seer.id);
     return {
       checkedId: validTargets.length > 0
@@ -464,7 +475,9 @@ export async function generateWerewolfChat(
       killVote: killVote || '',
     };
   } catch (err) {
-    console.error('狼人密聊AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('狼人密聊AI调用失败:', err);
+    }
     const validTargets = context.alivePlayers.filter(
       p => !context.wolfPlayers.some(w => w.id === p.id)
     );
@@ -526,7 +539,9 @@ const prompt = getDaySpeechPrompt(
     const content = await callAI(enhancedPlayer, prompt, 0.9);
     return parseSpeechContent(content);
   } catch (err) {
-    console.error('白天发言AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('白天发言AI调用失败:', err);
+    }
     return {
       speech: `我是${player.name}，我觉得需要好好分析现在的局势。`,
     };
@@ -595,7 +610,9 @@ export async function generateVoteDecision(
       reason: '无法确定目标，随机选择',
     };
   } catch (err) {
-    console.error('投票AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('投票AI调用失败:', err);
+    }
     const validTargets = context.alivePlayers.filter(p => p.id !== player.id);
     return {
       innerThought: 'AI调用失败',
@@ -637,7 +654,9 @@ export async function generateFinalSpeech(
     const content = await callAI(player, prompt, 0.8);
     return { speech: content.trim() };
   } catch (err) {
-    console.error('遗言AI调用失败:', err);
+    if (!isAbortError(err)) {
+      console.error('遗言AI调用失败:', err);
+    }
     return {
       speech: `我是${player.name}，${player.role === 'werewolf' ? '狼人' : '好人'}，希望好人能获胜。`,
     };
@@ -651,5 +670,6 @@ export {
   callAI,
   callAIStream,
 };
+
 
 

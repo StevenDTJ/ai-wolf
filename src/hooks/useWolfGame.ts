@@ -114,23 +114,54 @@ export function buildDayContext(state: WolfGameState, role: WolfPlayer['role'], 
   };
 }
 
+function extractWerewolfMessageTargetId(message: string, aliveVictims: WolfPlayer[]): string | null {
+  const preferredMentions = [
+    ...message.matchAll(/(?:刀|杀)\s*(\d+)\s*号/g),
+    ...message.matchAll(/(\d+)\s*号/g),
+  ];
+
+  for (const match of preferredMentions) {
+    const targetNumber = parseInt(match[1], 10);
+    const targetPlayer = aliveVictims.find(player => player.playerNumber === targetNumber);
+    if (targetPlayer) {
+      return targetPlayer.id;
+    }
+  }
+
+  return null;
+}
+
 export function resolveWerewolfTargetId(
   message: string,
   killVote: string | null | undefined,
   aliveVictims: WolfPlayer[]
 ): string | null {
+  const messageTargetId = extractWerewolfMessageTargetId(message, aliveVictims);
+  if (messageTargetId) {
+    return messageTargetId;
+  }
+
   if (killVote && aliveVictims.some(player => player.id === killVote)) {
     return killVote;
   }
 
-  const killTarget = message.match(/(\d+)号/)?.[1];
-  if (!killTarget) {
+  return null;
+}
+
+export function getWerewolfConsensusTarget(
+  currentRoundVotes: Array<{ playerId: string; targetId: string | null }>,
+  totalWolves: number
+): string | null {
+  const validTargets = currentRoundVotes
+    .map(vote => vote.targetId)
+    .filter((targetId): targetId is string => targetId !== null);
+
+  if (validTargets.length !== totalWolves) {
     return null;
   }
 
-  const targetNumber = parseInt(killTarget, 10);
-  const targetPlayer = aliveVictims.find(player => player.playerNumber === targetNumber);
-  return targetPlayer?.id || null;
+  const uniqueTargets = [...new Set(validTargets)];
+  return uniqueTargets.length === 1 ? uniqueTargets[0] : null;
 }
 
 export type WolfPhaseTransition = 'to_day' | 'to_night';
@@ -162,6 +193,7 @@ export function buildHunterFinalSpeech(
 export interface UseWolfGameReturn {
   session: WolfGameState | null;
   players: WolfPlayer[];
+  playersInitialized: boolean;
   isLoading: boolean;
   error: string | null;
   currentStreamingContent: string;
@@ -184,7 +216,8 @@ export interface UseWolfGameReturn {
 
 export function useWolfGame(): UseWolfGameReturn {
   // 玩家列表
-  const [players, setPlayers] = useState<WolfPlayer[]>(() => loadWolfPlayersFromStorage());
+  const [players, setPlayers] = useState<WolfPlayer[]>([]);
+  const [playersInitialized, setPlayersInitialized] = useState(false);
 
   // 游戏会话
   const [session, setSession] = useState<WolfGameState | null>(null);
@@ -226,6 +259,12 @@ export function useWolfGame(): UseWolfGameReturn {
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
+
+  // Hydrate players from localStorage after mount to avoid SSR/CSR mismatch.
+  useEffect(() => {
+    setPlayers(loadWolfPlayersFromStorage());
+    setPlayersInitialized(true);
+  }, []);
 
   const queueTransition = useCallback((nextState: WolfGameState, transition: WolfPhaseTransition) => {
     pendingSessionRef.current = nextState;
@@ -404,7 +443,7 @@ export function useWolfGame(): UseWolfGameReturn {
       playerId: witch.id,
       playerName: witch.name,
       content: result.reasoning || '（女巫正在思考...）',
-      type: 'inner_thought',
+      type: 'witch_action',
       round: state.currentRound,
       timestamp: Date.now(),
     };
@@ -467,7 +506,7 @@ export function useWolfGame(): UseWolfGameReturn {
       playerId: seer.id,
       playerName: seer.name,
       content: result.reasoning || '（预言家正在思考...）',
-      type: 'inner_thought',
+      type: 'seer_action',
       round: state.currentRound,
       timestamp: Date.now(),
     };
@@ -502,6 +541,7 @@ export function useWolfGame(): UseWolfGameReturn {
     const chatMessages: WolfMessage[] = [];
     const allKillVotes: Array<{ playerId: string; targetId: string | null }> = [];
     const aliveVictims = getAlivePlayers(state).filter(player => !wolves.some(wolfPlayer => wolfPlayer.id === player.id));
+    let consensusTargetId: string | null = null;
 
     for (let round = 0; round < MAX_CHAT_ROUNDS; round++) {
       for (const wolf of wolves) {
@@ -537,19 +577,9 @@ export function useWolfGame(): UseWolfGameReturn {
       }
 
       const currentRoundVotes = allKillVotes.slice(-wolves.length);
-      const voteTargets = currentRoundVotes
-        .map(v => v.targetId)
-        .filter((v): v is string => v !== null);
+      consensusTargetId = getWerewolfConsensusTarget(currentRoundVotes, wolves.length);
 
-      const voteCount: Record<string, number> = {};
-      voteTargets.forEach(t => {
-        voteCount[t] = (voteCount[t] || 0) + 1;
-      });
-
-      const totalWolves = wolves.length;
-      const hasConsensus = Object.values(voteCount).some(count => count > totalWolves / 2);
-
-      if (hasConsensus || round === MAX_CHAT_ROUNDS - 1) {
+      if (consensusTargetId || round === MAX_CHAT_ROUNDS - 1) {
         break;
       }
 
@@ -573,8 +603,11 @@ export function useWolfGame(): UseWolfGameReturn {
     });
 
     let maxVotes = 0;
-    let killTargetId: string | null = null;
+    let killTargetId: string | null = consensusTargetId;
     for (const [targetId, count] of Object.entries(voteCount)) {
+      if (killTargetId) {
+        break;
+      }
       if (count > maxVotes) {
         maxVotes = count;
         killTargetId = targetId;
@@ -821,6 +854,7 @@ export function useWolfGame(): UseWolfGameReturn {
   return {
     session,
     players,
+    playersInitialized,
     isLoading,
     error,
     currentStreamingContent,
@@ -841,4 +875,8 @@ export function useWolfGame(): UseWolfGameReturn {
     stopGeneration,
   };
 }
+
+
+
+
 

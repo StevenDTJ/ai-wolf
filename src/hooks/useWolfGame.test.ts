@@ -3,6 +3,7 @@ import {
   buildDayContext,
   buildNightContext,
   createDefaultWolfPlayer,
+  getWerewolfConsensusTarget,
   resolveWerewolfTargetId,
   ensureTransitionStateValid,
   buildHunterFinalSpeech,
@@ -71,6 +72,27 @@ describe('useWolfGame helpers', () => {
     expect(target).toBe('alive-3');
   });
 
+  it('resolveWerewolfTargetId prefers explicit message target over conflicting killVote', () => {
+    const aliveVictims: WolfPlayer[] = [
+      { ...createDefaultWolfPlayer(3), id: 'alive-3', isAlive: true },
+      { ...createDefaultWolfPlayer(4), id: 'alive-4', isAlive: true },
+    ];
+
+    const target = resolveWerewolfTargetId('第1轮我建议直接刀4号，白天再推3号', 'alive-3', aliveVictims);
+    expect(target).toBe('alive-4');
+  });
+
+  it('getWerewolfConsensusTarget returns first-round consensus when all wolves choose the same valid target', () => {
+    const consensusTarget = getWerewolfConsensusTarget(
+      [
+        { playerId: 'wolf-1', targetId: 'alive-4' },
+        { playerId: 'wolf-2', targetId: 'alive-4' },
+      ],
+      2
+    );
+
+    expect(consensusTarget).toBe('alive-4');
+  });
   it('transition to day/night does not produce invariant errors for valid state', () => {
     const state = createState();
 
@@ -91,3 +113,6 @@ describe('useWolfGame helpers', () => {
     expect(speech).toContain(`${target.playerNumber}号`);
   });
 });
+
+
+

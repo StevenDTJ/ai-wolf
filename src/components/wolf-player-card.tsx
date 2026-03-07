@@ -1,165 +1,111 @@
 'use client';
 
-import { WolfPlayer } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { X, Pencil } from 'lucide-react';
+import { getPlayerStateMeta } from '@/lib/wolf-game-ui';
+import { cn } from '@/lib/utils';
+import { WolfPlayer } from '@/types';
+import {
+  EyeIcon,
+  FlaskConical,
+  ShieldCheck,
+  Skull,
+  Sword,
+  Trash2,
+  User,
+} from 'lucide-react';
 
 interface WolfPlayerCardProps {
   player: WolfPlayer;
-  index: number;
   isCurrentSpeaker?: boolean;
   showIdentity?: boolean;
   onRemove?: () => void;
   onEdit?: () => void;
 }
 
-export function WolfPlayerCard({
-  player,
-  index,
-  isCurrentSpeaker = false,
-  showIdentity = false,
-  onRemove,
-  onEdit,
-}: WolfPlayerCardProps) {
-  const getRoleLabel = (role: string) => {
-    const roleMap: Record<string, string> = {
-      'villager': '村民',
-      'werewolf': '狼人',
-      'seer': '预言家',
-      'witch': '女巫',
-      'hunter': '猎人',
-    };
-    return roleMap[role] || role;
-  };
+const ROLE_CONFIG = {
+  villager: { label: '村民', icon: User, badgeClass: 'border-[2px] border-[#454341] bg-[#53dbc9] text-[#173f3a]' },
+  werewolf: { label: '狼人', icon: Skull, badgeClass: 'border-[2px] border-[#454341] bg-[#ff7169] text-[#69211d]' },
+  seer: { label: '预言家', icon: EyeIcon, badgeClass: 'border-[2px] border-[#454341] bg-[#6fc2ff] text-[#17496a]' },
+  witch: { label: '女巫', icon: FlaskConical, badgeClass: 'border-[2px] border-[#454341] bg-[#ff9538] text-[#7c4109]' },
+  hunter: { label: '猎人', icon: Sword, badgeClass: 'border-[2px] border-[#454341] bg-[#ffde00] text-[#5d4f00]' },
+} as const;
 
-  const getBackgroundColor = () => {
-    if (!showIdentity) return 'bg-gray-50 border-gray-200';
-    if (player.role === 'werewolf') return 'bg-red-50 border-red-200';
-    if (['seer','witch','hunter'].includes(player.role)) return 'bg-purple-50 border-purple-200';
-    return 'bg-blue-50 border-blue-200';
-  };
+const EMPHASIS_CLASS_MAP = {
+  focus: 'wolf-player-card-focus',
+  alive: 'wolf-player-card-alive',
+  warning: 'wolf-player-card-warning',
+  out: 'wolf-player-card-out',
+} as const;
 
-  const getRoleBadge = () => {
-    if (!showIdentity) return null;
-    if (player.role === 'werewolf') {
-      return (
-        <Badge variant="destructive" className="text-xs">
-          狼人
-        </Badge>
-      );
-    }
-    if (player.role === 'seer') {
-      return (
-        <Badge variant="default" className="bg-purple-500 text-xs">
-          预言家
-        </Badge>
-      );
-    }
-        if (player.role === 'witch') {
-      return (
-        <Badge variant="default" className="bg-pink-500 text-xs">
-          女巫
-        </Badge>
-      );
-    }
-    if (player.role === 'hunter') {
-      return (
-        <Badge variant="default" className="bg-amber-500 text-xs">
-          猎人
-        </Badge>
-      );
-    }    return (
-      <Badge variant="default" className="bg-blue-500 text-xs">
-        村民
-      </Badge>
-    );
-  };
+export function WolfPlayerCard({ player, isCurrentSpeaker = false, showIdentity = false, onRemove, onEdit }: WolfPlayerCardProps) {
+  const role = ROLE_CONFIG[player.role] || ROLE_CONFIG.villager;
+  const RoleIcon = role.icon;
+  const stateMeta = getPlayerStateMeta(player, { isCurrentSpeaker, showIdentity });
+  const configured = Boolean(player.apiKey && player.model);
 
   return (
-    <div
-      className={`p-3 rounded-lg border-2 transition-all ${
-        isCurrentSpeaker ? 'ring-2 ring-green-500 ring-offset-2' : ''
-      } ${getBackgroundColor()}`}
+    <article
+      role={onEdit ? 'button' : undefined}
+      tabIndex={onEdit ? 0 : undefined}
+      onClick={onEdit}
+      onKeyDown={onEdit ? (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onEdit();
+        }
+      } : undefined}
+      className={cn(
+        'group relative overflow-hidden rounded-none border px-3 py-2 transition-[transform,border-color,box-shadow,background-color] duration-200 hover:translate-x-[2px] hover:-translate-y-[2px]',
+        onEdit && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#454341] focus-visible:ring-offset-2',
+        EMPHASIS_CLASS_MAP[stateMeta.emphasis]
+      )}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium text-sm truncate">
-              {player.playerNumber}号 {player.name}
-            </span>
-            {getRoleBadge()}
+      <div className="grid gap-2">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
+          <span className="wolf-seat-pill">#{player.playerNumber}</span>
+          <div className="min-w-0">
+            <div className="truncate text-[12px] font-semibold leading-4 text-[#3e3d3c]">{player.name}</div>
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <Badge variant="outline" className={cn('gap-1 rounded-none px-2 py-0.5 text-[9px] font-medium', role.badgeClass)}>
+                <RoleIcon className="h-3 w-3" />
+                {showIdentity ? role.label : '身份未公开'}
+              </Badge>
+              <Badge variant="outline" className="rounded-none border-[2px] border-[#454341] bg-[var(--panel)] px-2 py-0.5 text-[9px] text-[#3e3d3c]">{stateMeta.stateLabel}</Badge>
+            </div>
           </div>
-
-          {showIdentity ? (
-            <div className="space-y-1">
-              <p className="text-xs text-gray-500">
-                模型: {player.model}
-              </p>
-              {player.apiKey ? (
-                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                  API已配置
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
-                  缺少API Key
-                </Badge>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <p className="text-xs text-gray-500">
-                模型: {player.model}
-              </p>
-              {player.apiKey ? (
-                <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                  API已配置
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
-                  缺少API Key
-                </Badge>
-              )}
-            </div>
-          )}
+          {onRemove ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-7 w-7 shrink-0 rounded-none border-[2px] border-[#454341] bg-[var(--panel)] text-[#69211d] hover:bg-[#ff7169] hover:text-[#69211d]"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRemove();
+              }}
+              aria-label={`移除 ${player.name}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : <div />}
         </div>
 
-        <div className="flex items-center gap-1">
-          {onEdit && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={onEdit}
-            >
-              <Pencil className="w-3 h-3" />
-            </Button>
-          )}
-          {onRemove && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={onRemove}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          )}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <div className="wolf-player-meta-row rounded-none min-w-0">
+            <span className="wolf-player-meta-label">模型</span>
+            <span className="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[9px] text-[#3e3d3c]">{player.model || '未设置'}</span>
+          </div>
+          <div className="wolf-player-meta-row rounded-none min-w-[74px] px-2.5">
+            <span className="wolf-player-meta-label">配置</span>
+            <span className={cn('inline-flex items-center gap-1 text-[9px] font-medium', configured ? 'text-[#173f3a]' : 'text-[#69211d]')}>
+              <ShieldCheck className="h-3 w-3" />
+              {configured ? '完成' : '待补全'}
+            </span>
+          </div>
         </div>
       </div>
-
-      {isCurrentSpeaker && (
-        <div className="mt-2 pt-2 border-t border-green-200">
-          <span className="text-xs text-green-600 font-medium flex items-center gap-1">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            正在发言
-          </span>
-        </div>
-      )}
-    </div>
+    </article>
   );
 }
-
-
 
 

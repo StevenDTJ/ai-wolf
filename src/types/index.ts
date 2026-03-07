@@ -487,7 +487,7 @@ export interface WolfPlayer {
 }
 
 // 狼人杀消息类型
-export type WolfMessageType = 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'final_speech';
+export type WolfMessageType = 'inner_thought' | 'speech' | 'wolf_chat' | 'witch_action' | 'seer_action' | 'final_speech';
 
 // 狼人杀消息
 export interface WolfMessage {
@@ -555,5 +555,6 @@ export interface AudienceQuestion {
   answerAgentName?: string;
   timestamp: number;
 }
+
 
 

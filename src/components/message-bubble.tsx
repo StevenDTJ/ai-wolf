@@ -1,5 +1,5 @@
 import { DebateMessage, STANCE_INFO, CrossExamGroup, SpeechType } from '@/types';
-import { Copy, Check, Download, ArrowRight, Sword, HelpCircle } from 'lucide-react';
+import { Copy, Check, Download, Sword, HelpCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
 import ReactMarkdown from 'react-markdown';
@@ -54,40 +54,36 @@ export function MessageBubble({
     });
   };
 
-  // 立场颜色 - 亮色背景配黑字
+  // Wolf-style stance colors
   const getStanceStyles = () => {
     switch (message.stance) {
       case 'pro':
         return {
-          bg: 'bg-blue-50',
-          border: 'border-blue-300',
-          badge: 'bg-blue-100 text-blue-700 border-blue-300',
-          avatar: 'bg-blue-100 border-blue-300 text-blue-700',
-          accent: 'text-blue-600',
+          avatarBg: '#6fc2ff',
+          badgeBg: '#6fc2ff',
+          badgeText: '#3e3d3c',
+          textColor: '#3e3d3c',
         };
       case 'con':
         return {
-          bg: 'bg-red-50',
-          border: 'border-red-300',
-          badge: 'bg-red-100 text-red-700 border-red-300',
-          avatar: 'bg-red-100 border-red-300 text-red-700',
-          accent: 'text-red-600',
+          avatarBg: '#ff7169',
+          badgeBg: '#ff7169',
+          badgeText: '#3e3d3c',
+          textColor: '#3e3d3c',
         };
       case 'judge':
         return {
-          bg: 'bg-amber-50',
-          border: 'border-amber-300',
-          badge: 'bg-amber-100 text-amber-700 border-amber-300',
-          avatar: 'bg-amber-100 border-amber-300 text-amber-700',
-          accent: 'text-amber-600',
+          avatarBg: '#ffde00',
+          badgeBg: '#ffde00',
+          badgeText: '#3e3d3c',
+          textColor: '#3e3d3c',
         };
       default:
         return {
-          bg: 'bg-gray-50',
-          border: 'border-gray-300',
-          badge: 'bg-gray-100 text-gray-700 border-gray-300',
-          avatar: 'bg-gray-100 border-gray-300 text-gray-700',
-          accent: 'text-gray-600',
+          avatarBg: '#ede7e1',
+          badgeBg: '#ede7e1',
+          badgeText: '#3e3d3c',
+          textColor: '#3e3d3c',
         };
     }
   };
@@ -104,111 +100,182 @@ export function MessageBubble({
     }
   };
 
-  // 获取攻辩样式
-  // Note: Using inline styles for cross-exam messages
-
   return (
-    <div className={`group transition-all ${isStreaming ? 'opacity-90' : ''} ${isCrossExam ? 'rounded-lg ring-1 ring-purple-300 p-1' : ''} ${isAudienceQA ? 'rounded-lg ring-1 ring-gray-400 p-1' : ''}`}>
-      {/* 攻辩标识 */}
+    <div
+      className="group transition-all"
+      style={{ opacity: isStreaming ? 0.9 : 1 }}
+    >
+      {/* 攻辩标识 - Wolf Style */}
       {isCrossExam && (
-        <div className="flex items-center gap-1 text-xs text-purple-600 mb-2 px-1">
+        <div className="flex items-center gap-1 text-[0.62rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#ff9538' }}>
           <Sword className="w-3 h-3" />
-          <span className="font-medium">攻辩环节</span>
+          <span>攻辩环节</span>
         </div>
       )}
 
-      {/* 观众提问标识 */}
+      {/* 观众提问标识 - Wolf Style */}
       {isAudienceQA && (
-        <div className="flex items-center gap-1 text-xs text-gray-600 mb-2 px-1">
+        <div className="flex items-center gap-1 text-[0.62rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#5f5b57' }}>
           <HelpCircle className="w-3 h-3" />
-          <span className="font-medium">观众提问</span>
+          <span>观众提问</span>
         </div>
       )}
 
       <div className="flex items-start gap-3">
-        {/* Avatar with animation */}
+        {/* Avatar - Wolf Style */}
         <div className="relative shrink-0">
           <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold border-2 ${styles.avatar} ${
-              isStreaming ? 'animate-pulse ring-2 ring-offset-2 ring-offset-background' : ''
-            } ${isCrossExam ? 'ring-2 ring-purple-300' : ''}`}
+            className="w-10 h-10 flex items-center justify-center text-sm font-bold"
+            style={{
+              backgroundColor: styles.avatarBg,
+              color: styles.badgeText,
+              border: '2px solid #454341',
+            }}
           >
             {message.agentName.charAt(0).toUpperCase()}
           </div>
           {isStreaming && (
-            <div className={`absolute -bottom-1 -right-1 w-4 h-4 ${styles.accent} rounded-full border-2 border-background flex items-center justify-center`}>
-              <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping" />
+            <div
+              className="absolute -bottom-1 -right-1 w-3 h-3 flex items-center justify-center"
+              style={{
+                backgroundColor: styles.avatarBg,
+                border: '2px solid #454341',
+                borderRadius: '50%',
+              }}
+            >
+              <div className="w-1.5 h-1.5" style={{ backgroundColor: styles.badgeText, borderRadius: '50%' }} />
             </div>
           )}
         </div>
 
-        {/* Content */}
+        {/* Content - Wolf Style */}
         <div className="flex-1 min-w-0">
           {/* Header */}
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className="font-semibold text-foreground">
+            <span className="font-medium text-sm" style={{ color: '#3e3d3c' }}>
               {message.agentName}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${styles.badge}`}>
+            <span
+              className="text-[0.54rem] font-mono uppercase tracking-wider px-1.5 py-0.5"
+              style={{
+                backgroundColor: styles.badgeBg,
+                color: styles.badgeText,
+                border: '1px solid #454341',
+              }}
+            >
               {getStanceLabel()}
             </span>
             {isCrossExam && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 border border-purple-300 font-medium">
+              <span
+                className="text-[0.54rem] font-mono uppercase px-1.5 py-0.5"
+                style={{
+                  backgroundColor: '#ff9538',
+                  color: '#3e3d3c',
+                  border: '1px solid #454341',
+                }}
+              >
                 攻辩
               </span>
             )}
-            <span className="text-xs text-gray-500">
+            <span className="text-[0.54rem] font-mono" style={{ color: '#5f5b57' }}>
               {formatTime(message.timestamp)}
             </span>
             {isStreaming && (
-              <span className={`text-xs ${styles.accent} animate-pulse flex items-center gap-1`}>
-                <span className="w-1.5 h-1.5 bg-current rounded-full animate-bounce" />
+              <span
+                className="text-[0.54rem] font-mono flex items-center gap-1"
+                style={{ color: styles.avatarBg }}
+              >
+                <span
+                  className="w-1.5 h-1.5"
+                  style={{ backgroundColor: styles.avatarBg, borderRadius: '50%' }}
+                />
                 思考中...
               </span>
             )}
           </div>
 
-          {/* Message body with Markdown */}
+          {/* Message body with Markdown - Wolf Style */}
           <div
-            className={`p-4 rounded-xl border text-sm leading-relaxed overflow-hidden ${styles.bg} ${styles.border} ${isCrossExam ? 'bg-purple-50 border-purple-300' : ''} ${isAudienceQA ? 'bg-gray-100 border-gray-400' : ''}`}
+            className="p-3 text-sm leading-relaxed overflow-hidden"
+            style={{
+              backgroundColor: '#f4efea',
+              border: '2px solid #454341',
+              color: '#3e3d3c',
+            }}
           >
-            <div className="prose prose-sm max-w-none text-foreground">
+            <div className="prose prose-sm max-w-none">
               <ReactMarkdown
                 components={{
-                  p: ({ children }) => <p className="mb-2 last:mb-0 text-foreground">{children}</p>,
+                  p: ({ children }) => <p className="mb-2 last:mb-0" style={{ color: '#3e3d3c' }}>{children}</p>,
                   ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
                   ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                  li: ({ children }) => <li className="text-foreground">{children}</li>,
-                  strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
-                  em: ({ children }) => <em className="text-foreground/80">{children}</em>,
-                  code: ({ children }) => <code className="bg-black/10 px-1.5 py-0.5 rounded text-xs font-mono text-foreground">{children}</code>,
-                  pre: ({ children }) => <pre className="bg-black/5 p-3 rounded-lg overflow-x-auto mb-2 text-foreground">{children}</pre>,
-                  blockquote: ({ children }) => <blockquote className="border-l-2 border-current pl-3 italic text-foreground/80">{children}</blockquote>,
-                  h1: ({ children }) => <h1 className="text-xl font-bold text-foreground mb-2">{children}</h1>,
-                  h2: ({ children }) => <h2 className="text-lg font-bold text-foreground mb-2">{children}</h2>,
-                  h3: ({ children }) => <h3 className="text-base font-semibold text-foreground mb-2">{children}</h3>,
+                  li: ({ children }) => <li style={{ color: '#3e3d3c' }}>{children}</li>,
+                  strong: ({ children }) => <strong style={{ color: '#3e3d3c', fontWeight: 600 }}>{children}</strong>,
+                  em: ({ children }) => <em style={{ color: '#5f5b57' }}>{children}</em>,
+                  code: ({ children }) => (
+                    <code
+                      className="px-1.5 py-0.5 text-xs font-mono"
+                      style={{ backgroundColor: '#ede7e1', color: '#3e3d3c', border: '1px solid #454341' }}
+                    >
+                      {children}
+                    </code>
+                  ),
+                  pre: ({ children }) => (
+                    <pre
+                      className="p-3 overflow-x-auto mb-2 text-xs"
+                      style={{ backgroundColor: '#ede7e1', color: '#3e3d3c', border: '1px solid #454341' }}
+                    >
+                      {children}
+                    </pre>
+                  ),
+                  blockquote: ({ children }) => (
+                    <blockquote
+                      className="pl-3 italic"
+                      style={{ borderLeft: '2px solid #454341', color: '#5f5b57' }}
+                    >
+                      {children}
+                    </blockquote>
+                  ),
+                  h1: ({ children }) => <h1 className="text-lg font-bold mb-2" style={{ color: '#3e3d3c' }}>{children}</h1>,
+                  h2: ({ children }) => <h2 className="text-base font-semibold mb-2" style={{ color: '#3e3d3c' }}>{children}</h2>,
+                  h3: ({ children }) => <h3 className="text-sm font-medium mb-2" style={{ color: '#3e3d3c' }}>{children}</h3>,
                 }}
               >
                 {message.content}
               </ReactMarkdown>
             </div>
             {isStreaming && (
-              <span className={`inline-block w-0.5 h-5 ${styles.accent} animate-pulse ml-0.5 align-middle`} />
+              <span
+                className="inline-block w-0.5 h-4 ml-0.5 align-middle"
+                style={{ backgroundColor: styles.avatarBg }}
+              />
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="sm" onClick={handleCopy} className="h-7 text-xs">
+          {/* Actions - Wolf Style */}
+          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              className="h-6 text-[0.54rem] font-mono uppercase"
+              style={{ color: '#5f5b57' }}
+            >
               {copied ? (
-                <Check className="w-3 h-3 mr-1 text-green-500" />
+                <Check className="w-3 h-3 mr-1" style={{ color: '#53dbc9' }} />
               ) : (
                 <Copy className="w-3 h-3 mr-1" />
               )}
               {copied ? '已复制' : '复制'}
             </Button>
             {onExport && (
-              <Button variant="ghost" size="sm" onClick={handleExport} className="h-7 text-xs">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleExport}
+                className="h-6 text-[0.54rem] font-mono uppercase"
+                style={{ color: '#5f5b57' }}
+              >
                 <Download className="w-3 h-3 mr-1" />
                 导出
               </Button>

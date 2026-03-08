@@ -6,6 +6,7 @@ import {
   WolfPlayer,
   WolfMessage,
   WolfVote,
+  WolfGameStatus,
 } from '@/types';
 import {
   WolfGameState,
@@ -680,7 +681,7 @@ export function useWolfGame(): UseWolfGameReturn {
     const newState = {
       ...state,
       messages: [...state.messages, msg],
-      status: 'day_speech',
+      status: 'day_speech' as WolfGameStatus,
     };
 
     setSession(newState);

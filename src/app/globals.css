@@ -2383,49 +2383,12 @@ body {
   border-radius: 0 !important;
 }
 
-/* 2026-03-08 wolf control CTA shadow */
-.wolf-square-theme .wolf-workbench-rail .wolf-action-cta {
-  box-shadow: 0 4px 0 0 #454341 !important;
-}
-.wolf-square-theme .wolf-workbench-rail .wolf-action-cta:hover:not(:disabled),
-.wolf-square-theme .wolf-workbench-rail .wolf-action-cta:focus-visible:not(:disabled) {
-  transform: translate(2px, -2px) !important;
-  box-shadow: -4px 4px 0 0 #454341 !important;
-}
-.wolf-square-theme .wolf-workbench-rail .wolf-action-cta:active:not(:disabled) {
-  transform: translate(0, 2px) !important;
-  box-shadow: 0 2px 0 0 #454341 !important;
-}
-
-
-/* 2026-03-08 wolf hard-shadow buttons */
-.wolf-square-theme .wolf-action-cta,
-.wolf-header-action {
-  box-shadow: 0 4px 0 0 #454341 !important;
-  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease !important;
-}
-
-.wolf-square-theme .wolf-action-cta:hover:not(:disabled),
-.wolf-square-theme .wolf-action-cta:focus-visible:not(:disabled),
-.wolf-header-action:hover:not(:disabled),
-.wolf-header-action:focus-visible:not(:disabled) {
-  transform: translate(2px, -2px) !important;
-  box-shadow: -4px 4px 0 0 #454341 !important;
-}
-
-.wolf-square-theme .wolf-action-cta:active:not(:disabled),
-.wolf-header-action:active:not(:disabled) {
-  transform: translate(0, 2px) !important;
-  box-shadow: 0 2px 0 0 #454341 !important;
-}
-
 /* 2026-03-08 wolf hard-shadow button class */
 .wolf-hard-shadow-button {
   position: relative;
-  box-shadow: 0 4px 0 0 #454341 !important;
+  box-shadow: none !important;
   transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease !important;
   will-change: transform, box-shadow;
-  margin-bottom: 4px;
 }
 
 .wolf-hard-shadow-button:hover:not(:disabled),
@@ -2435,8 +2398,389 @@ body {
 }
 
 .wolf-hard-shadow-button:active:not(:disabled) {
-  transform: translate(0, 2px) !important;
-  box-shadow: 0 2px 0 0 #454341 !important;
+  transform: translate(0, 1px) !important;
+  box-shadow: -2px 2px 0 0 #454341 !important;
 }
 
+/* Wolf Debate Mode UI - 2026-03-08 */
 
+/* Debate Panel Base */
+.wolf-debate-panel {
+  background: var(--wolf-panel) !important;
+  border: 2px solid var(--wolf-border) !important;
+}
+
+.wolf-debate-panel-header {
+  border-bottom: 2px solid var(--wolf-border) !important;
+  padding: 0.5rem 0.75rem;
+}
+
+.wolf-debate-panel-content {
+  padding: 0.75rem;
+}
+
+/* Debate Command Bar */
+.wolf-debate-command {
+  background: var(--wolf-panel);
+  border: 2px solid var(--wolf-border);
+}
+
+.wolf-debate-command-stat {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--wolf-ink-soft);
+}
+
+.wolf-debate-command-value {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--wolf-ink);
+}
+
+/* Debate Agent Card */
+.wolf-debate-agent-card {
+  background: var(--wolf-paper);
+  border: 2px solid var(--wolf-border);
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.wolf-debate-agent-card:hover {
+  transform: translate(1px, -1px);
+  box-shadow: -3px 3px 0 0 var(--wolf-border);
+}
+
+/* Pro/Con Stance Colors - Wolf Style */
+.wolf-debate-stance-pro {
+  background: var(--wolf-blue) !important;
+  color: var(--wolf-ink) !important;
+}
+
+.wolf-debate-stance-con {
+  background: var(--wolf-red) !important;
+  color: var(--wolf-ink) !important;
+}
+
+.wolf-debate-stance-judge {
+  background: var(--wolf-yellow) !important;
+  color: var(--wolf-ink) !important;
+}
+
+/* Debate Message Bubble */
+.wolf-debate-message {
+  background: var(--wolf-paper);
+  border: 2px solid var(--wolf-border);
+}
+
+.wolf-debate-message-avatar {
+  border: 2px solid var(--wolf-border);
+}
+
+.wolf-debate-message-avatar-pro {
+  background: var(--wolf-blue);
+  color: var(--wolf-ink);
+}
+
+.wolf-debate-message-avatar-con {
+  background: var(--wolf-red);
+  color: var(--wolf-ink);
+}
+
+.wolf-debate-message-avatar-judge {
+  background: var(--wolf-yellow);
+  color: var(--wolf-ink);
+}
+
+.wolf-debate-message-badge {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--wolf-border);
+}
+
+/* Debate Controls */
+.wolf-debate-control-button {
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  border: 2px solid var(--wolf-border) !important;
+  border-radius: 0 !important;
+}
+
+.wolf-debate-control-primary {
+  background: var(--wolf-blue) !important;
+  color: var(--wolf-ink) !important;
+  box-shadow: 0 4px 0 0 var(--wolf-border) !important;
+}
+
+.wolf-debate-control-primary:hover:not(:disabled) {
+  transform: translate(2px, -2px);
+  box-shadow: -4px 4px 0 0 var(--wolf-border) !important;
+}
+
+.wolf-debate-control-secondary {
+  background: var(--wolf-panel) !important;
+  color: var(--wolf-ink) !important;
+}
+
+.wolf-debate-control-danger {
+  background: var(--wolf-red) !important;
+  color: var(--wolf-ink) !important;
+  box-shadow: 0 4px 0 0 var(--wolf-border) !important;
+}
+
+/* Debate Topic Input */
+.wolf-debate-topic-input {
+  background: var(--wolf-panel);
+  border: 2px solid var(--wolf-border);
+  border-radius: 0;
+  font-family: var(--font-sans);
+  color: var(--wolf-ink);
+}
+
+.wolf-debate-topic-input:focus {
+  outline: none;
+  border-color: var(--wolf-blue);
+  box-shadow: none;
+}
+
+/* Debate Mode Toggle */
+.wolf-debate-mode-toggle {
+  background: var(--wolf-paper-soft);
+  border: 2px solid var(--wolf-border);
+}
+
+.wolf-debate-mode-toggle-button {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 2px solid transparent;
+  border-radius: 0;
+}
+
+.wolf-debate-mode-toggle-button-active {
+  background: var(--wolf-blue);
+  color: var(--wolf-ink);
+  border-color: var(--wolf-border);
+}
+
+/* Debate Empty State */
+.wolf-debate-empty {
+  background: var(--wolf-paper);
+  border: 2px dashed var(--wolf-border);
+}
+
+/* Debate Streaming Indicator */
+.wolf-debate-streaming {
+  background: var(--wolf-paper-soft);
+  border: 1px solid var(--wolf-line);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+/* Debate Stage Badge */
+.wolf-debate-stage-badge {
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border: 1px solid var(--wolf-border);
+}
+
+/* Debate Free Debate Section */
+.wolf-debate-free-section {
+  background: var(--wolf-paper);
+  border: 2px solid var(--wolf-border);
+}
+
+/* Debate Audience QA */
+.wolf-debate-audience-qa {
+  background: var(--wolf-paper);
+  border: 2px solid var(--wolf-border);
+}
+
+/* Input fields for debate */
+.wolf-debate-input {
+  background: var(--wolf-panel) !important;
+  border: 2px solid var(--wolf-border) !important;
+  border-radius: 0 !important;
+  color: var(--wolf-ink) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.wolf-debate-input::placeholder {
+  color: var(--wolf-ink-soft) !important;
+}
+
+.wolf-debate-input:focus {
+  outline: none;
+  border-color: var(--wolf-blue) !important;
+}
+
+/* Scrollbar for debate panels */
+.wolf-debate-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wolf-debate-scroll::-webkit-scrollbar-track {
+  background: var(--wolf-paper-soft);
+}
+
+.wolf-debate-scroll::-webkit-scrollbar-thumb {
+  background: var(--wolf-border);
+}
+
+.wolf-debate-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--wolf-ink-soft);
+}
+
+/* Debate Micro-interactions */
+@keyframes wolfDebatePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.wolf-debate-pulse {
+  animation: wolfDebatePulse 2s ease-in-out infinite;
+}
+
+@keyframes wolfDebateSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wolf-debate-slide-in {
+  animation: wolfDebateSlideIn 320ms ease-out both;
+}
+
+/* Debate Input Focus Ring */
+.wolf-debate-input:focus-visible {
+  outline: 2px solid #6fc2ff;
+  outline-offset: 0;
+}
+
+/* Debate Button Disabled State */
+.wolf-debate-control-button:disabled,
+.wolf-debate-control-primary:disabled,
+.wolf-debate-control-secondary:disabled,
+.wolf-debate-control-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Debate Team Badge Variants */
+.wolf-debate-team-pro {
+  background: var(--wolf-blue);
+  color: var(--wolf-ink);
+  border: 1px solid var(--wolf-border);
+}
+
+.wolf-debate-team-con {
+  background: var(--wolf-red);
+  color: var(--wolf-ink);
+  border: 1px solid var(--wolf-border);
+}
+
+.wolf-debate-team-judge {
+  background: var(--wolf-yellow);
+  color: var(--wolf-ink);
+  border: 1px solid var(--wolf-border);
+}
+
+/* Debate Section Dividers */
+.wolf-debate-divider {
+  height: 1px;
+  background: var(--wolf-line);
+}
+
+.wolf-debate-divider-thick {
+  height: 2px;
+  background: var(--wolf-border);
+}
+
+/* Debate Card Hover Effects */
+.wolf-debate-card-interactive {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.wolf-debate-card-interactive:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 2px 2px 0 0 var(--wolf-border);
+  border-color: var(--wolf-blue);
+}
+
+/* Debate Active Tab Indicator */
+.wolf-debate-tab-active {
+  position: relative;
+}
+
+.wolf-debate-tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--wolf-blue);
+}
+
+/* 2026-03-08 wolf inline dialog actions */
+.wolf-inline-action {
+  position: relative;
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: #3e3d3c !important;
+  font-family: var(--font-mono);
+  font-size: 0.72rem !important;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wolf-inline-action::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 180ms ease;
+}
+
+.wolf-inline-action:hover:not(:disabled)::after,
+.wolf-inline-action:focus-visible:not(:disabled)::after {
+  transform: scaleX(1);
+}
+
+.wolf-inline-action:hover:not(:disabled),
+.wolf-inline-action:focus-visible:not(:disabled) {
+  background: transparent !important;
+}
+
+/* 2026-03-08 wolf header inline action */
+.wolf-header-inline {
+  min-height: 2rem;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.wolf-header-inline::after {
+  bottom: 3px;
+}

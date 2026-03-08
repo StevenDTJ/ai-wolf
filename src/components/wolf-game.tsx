@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -354,11 +354,11 @@ export function WolfGame({ wolf }: WolfGameProps) {
             </div>
           </div>
           <div className="flex gap-2 border-t pt-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setPresetMode('save'); setPresetDialogOpen(true); }}>
+            <Button variant="ghost" size="sm" className="wolf-inline-action flex-1 justify-start px-0 hover:bg-transparent" onClick={() => { setPresetMode('save'); setPresetDialogOpen(true); }}>
               <Save className="mr-1 h-3 w-3" />
               保存为预设
             </Button>
-            <Button variant="outline" size="sm" className="flex-1" onClick={() => { setPresetMode('load'); setPresetDialogOpen(true); }} disabled={presets.length === 0}>
+            <Button variant="ghost" size="sm" className="wolf-inline-action flex-1 justify-start px-0 hover:bg-transparent disabled:opacity-40" onClick={() => { setPresetMode('load'); setPresetDialogOpen(true); }} disabled={presets.length === 0}>
               <FolderOpen className="mr-1 h-3 w-3" />
               应用预设
             </Button>
@@ -590,6 +590,7 @@ function StreamingBubble({
     </div>
   );
 }
+
 
 
 

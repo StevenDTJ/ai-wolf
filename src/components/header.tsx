@@ -42,17 +42,14 @@ export function Header({ onSettingsClick }: HeaderProps) {
 
           <div className="flex items-center gap-2 overflow-visible">
             {isWolfPage ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="wolf-header-action wolf-hard-shadow-button h-8 rounded-none border-[2px] border-[#454341] bg-[#fbf7f2] px-3 text-[0.72rem] font-mono uppercase tracking-[0.08em] text-[#3e3d3c]"
-                asChild
+              <Link
+                href="/"
+                className="utility-link flex items-center gap-2 text-[0.72rem]"
+                style={{ color: '#3e3d3c' }}
               >
-                <Link href="/">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  返回 AI 辩论
-                </Link>
-              </Button>
+                <ArrowLeft className="h-4 w-4" />
+                返回 AI 辩论
+              </Link>
             ) : onSettingsClick ? (
               <Button variant="ghost" size="sm" onClick={onSettingsClick} className="utility-link gap-2 px-0 text-[hsl(40_25%_12%)] hover:bg-transparent">
                 <Settings className="h-4 w-4" />
@@ -65,6 +62,7 @@ export function Header({ onSettingsClick }: HeaderProps) {
     </header>
   );
 }
+
 
 
 

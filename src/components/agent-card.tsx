@@ -1,8 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { AgentConfig, STANCE_INFO } from '@/types';
 import { Edit, Trash2, GripVertical } from 'lucide-react';
+import { Button } from './ui/button';
 
 interface AgentCardProps {
   agent: AgentConfig;
@@ -26,79 +24,123 @@ export function AgentCard({
   const hasApiKey = agent.apiKey && agent.apiKey.trim().length > 0;
   const stanceInfo = STANCE_INFO[agent.stance];
 
-  // 立场徽章样式 - 蓝色(正方)、红色(反方)、金色(裁判)
+  // Wolf-style stance badge colors
   const getStanceBadgeStyle = () => {
     switch (agent.stance) {
       case 'pro':
-        return 'bg-blue-100 text-blue-700 border-blue-300';
+        return {
+          bg: '#6fc2ff',
+          text: '#3e3d3c',
+        };
       case 'con':
-        return 'bg-red-100 text-red-700 border-red-300';
+        return {
+          bg: '#ff7169',
+          text: '#3e3d3c',
+        };
       case 'judge':
-        return 'bg-amber-100 text-amber-700 border-amber-300';
+        return {
+          bg: '#ffde00',
+          text: '#3e3d3c',
+        };
       default:
-        return 'bg-muted text-muted-foreground';
+        return {
+          bg: '#ede7e1',
+          text: '#3e3d3c',
+        };
     }
   };
 
+  const stanceStyle = getStanceBadgeStyle();
+
   return (
-    <Card
-      className="relative group cursor-move border border-border bg-card hover:border-primary/40 hover:shadow-md transition-all classic-shadow"
+    <div
+      className="wolf-debate-agent-card relative group cursor-move p-3"
       draggable
       onDragStart={(e) => onDragStart(e, index)}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, index)}
     >
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 min-w-0">
-            <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-            <CardTitle className="text-sm font-medium truncate text-foreground">
-              {agent.name || '未命名辩手'}
-            </CardTitle>
-          </div>
-          <Badge className={`shrink-0 ${getStanceBadgeStyle()}`}>
-            {stanceInfo.label}
-          </Badge>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <GripVertical className="w-4 h-4 shrink-0" style={{ color: '#5f5b57' }} />
+          <span
+            className="text-sm font-medium truncate"
+            style={{ color: '#3e3d3c' }}
+          >
+            {agent.name || '未命名辩手'}
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        {/* Info section */}
-        <div className="bg-muted/50 rounded-md p-2 space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">模型</span>
-            <span className="text-foreground font-mono text-xs truncate max-w-[150px]" title={agent.model}>
-              {agent.model}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">API</span>
-            <span className={hasApiKey ? 'text-green-600' : 'text-yellow-600'}>
-              {hasApiKey ? '已配置' : '未配置'}
-            </span>
-          </div>
-        </div>
+        <span
+          className="shrink-0 font-mono text-[0.56rem] uppercase tracking-wider px-2 py-0.5"
+          style={{
+            backgroundColor: stanceStyle.bg,
+            color: stanceStyle.text,
+            border: '1px solid #454341',
+          }}
+        >
+          {stanceInfo.label}
+        </span>
+      </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 mt-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => onEdit(agent)}
-            className="flex-1"
+      {/* Info section - Wolf style */}
+      <div
+        className="p-2 space-y-1.5"
+        style={{
+          backgroundColor: '#ede7e1',
+          border: '1px solid rgba(69,67,65,0.18)',
+        }}
+      >
+        <div className="flex items-center justify-between text-[0.62rem]">
+          <span className="font-mono uppercase tracking-wider" style={{ color: '#5f5b57' }}>模型</span>
+          <span
+            className="font-mono text-[0.58rem] truncate max-w-[150px]"
+            style={{ color: '#3e3d3c' }}
+            title={agent.model}
           >
-            <Edit className="w-3 h-3 mr-1" />
-            编辑
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(agent.id)}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
+            {agent.model}
+          </span>
         </div>
-      </CardContent>
-    </Card>
+        <div className="flex items-center justify-between text-[0.62rem]">
+          <span className="font-mono uppercase tracking-wider" style={{ color: '#5f5b57' }}>API</span>
+          <span
+            className="font-mono text-[0.58rem]"
+            style={{ color: hasApiKey ? '#53dbc9' : '#ff9538' }}
+          >
+            {hasApiKey ? '已配置' : '未配置'}
+          </span>
+        </div>
+      </div>
+
+      {/* Action buttons - Wolf style */}
+      <div className="flex gap-2 mt-2">
+        <Button
+          size="sm"
+          onClick={() => onEdit(agent)}
+          className="flex-1 wolf-hard-shadow-button h-7 text-[0.54rem] font-mono uppercase"
+          style={{
+            backgroundColor: '#fbf7f2',
+            color: '#3e3d3c',
+            border: '2px solid #454341',
+            borderRadius: 0,
+          }}
+        >
+          <Edit className="w-3 h-3 mr-1" />
+          编辑
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => onDelete(agent.id)}
+          className="wolf-hard-shadow-button h-7 px-2"
+          style={{
+            backgroundColor: '#fbf7f2',
+            color: '#ff7169',
+            border: '2px solid #454341',
+            borderRadius: 0,
+          }}
+        >
+          <Trash2 className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -1,8 +1,5 @@
-﻿import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Debater, DEFAULT_MODELS, DEBATER_PROMPTS, DebaterRole, TeamSide } from '@/types';
 
 // 模型对应的默认Base URL
@@ -37,6 +34,7 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
   }[debater.role];
 
   const teamLabel = debater.team === 'pro' ? '正方' : '反方';
+  const teamColor = debater.team === 'pro' ? '#6fc2ff' : '#ff7169';
   const defaultName = `${teamLabel}${roleLabel}`;
 
   // 默认Base URL根据模型自动匹配
@@ -53,6 +51,7 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
   const [temperature, setTemperature] = useState(debater.temperature ?? 0.7);
   const [maxTokens, setMaxTokens] = useState(debater.maxTokens ?? 1000);
   const [thinkingMode, setThinkingMode] = useState(debater.thinkingMode ?? false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const updateModel = (nextModel: string) => {
     setModel(nextModel);
@@ -62,7 +61,6 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
       setBaseUrl(defaultUrl);
     }
   };
-
 
   function getDefaultPrompt(role: DebaterRole, team: TeamSide): string {
     return DEBATER_PROMPTS[role][team];
@@ -84,99 +82,135 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {/* Role & Team Info */}
-      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-        <span className="text-sm font-medium">
+    <form onSubmit={handleSubmit} className="space-y-4 p-4">
+      {/* Role & Team Info - Wolf Style */}
+      <div
+        className="flex items-center gap-2 p-3"
+        style={{
+          backgroundColor: '#ede7e1',
+          border: '2px solid #454341',
+        }}
+      >
+        <span
+          className="font-mono text-sm uppercase tracking-wider"
+          style={{ color: '#3e3d3c' }}
+        >
           {teamLabel} - {roleLabel}
         </span>
       </div>
 
-      {/* Name */}
+      {/* Name - Wolf Style */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">辩手名称</label>
-        <Input
+        <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+          辩手名称
+        </label>
+        <input
+          type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={`例如：${defaultName}`}
           required
+          className="wolf-debate-input w-full h-9 px-3 text-sm"
         />
       </div>
 
-      {/* Model */}
+      {/* Model - Wolf Style */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">模型</label>
-        <Input
+        <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+          模型
+        </label>
+        <input
+          type="text"
           value={model}
           onChange={(e) => updateModel(e.target.value)}
           placeholder="gpt-4o-mini"
+          className="wolf-debate-input w-full h-9 px-3 text-sm font-mono"
         />
         <div className="flex flex-wrap gap-1.5">
-          <span className="text-xs text-muted-foreground py-1">快速选择:</span>
+          <span className="text-[0.54rem] font-mono uppercase" style={{ color: '#5f5b57' }}>快速选择:</span>
           {DEFAULT_MODELS.slice(0, 6).map((m) => (
-            <Button
+            <button
               key={m}
               type="button"
-              size="sm"
-              className={`text-xs h-7 px-2.5 py-0 transition-all duration-200 border-2 ${
-                model === m
-                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white border-blue-500 shadow-lg scale-105 font-bold'
-                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 hover:border-blue-300'
-              }`}
               onClick={() => updateModel(m)}
+              className="text-[0.5rem] font-mono h-6 px-2 transition-all duration-200"
+              style={{
+                backgroundColor: model === m ? '#6fc2ff' : '#fbf7f2',
+                color: '#3e3d3c',
+                border: '1px solid #454341',
+              }}
             >
               {m}
-            </Button>
+            </button>
           ))}
         </div>
       </div>
 
-      {/* API Config */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* API Config - Wolf Style */}
+      <div className="grid grid-cols-1 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Base URL</label>
-          <Input
+          <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+            Base URL
+          </label>
+          <input
+            type="text"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder={MODEL_BASE_URLS[model] || 'https://api.openai.com/v1'}
+            className="wolf-debate-input w-full h-9 px-3 text-sm font-mono"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">API Key</label>
-          <Input
+          <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+            API Key
+          </label>
+          <input
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-..."
+            className="wolf-debate-input w-full h-9 px-3 text-sm font-mono"
           />
         </div>
       </div>
 
-      {/* System Prompt */}
+      {/* System Prompt - Wolf Style */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">系统提示词</label>
-        <Textarea
+        <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+          系统提示词
+        </label>
+        <textarea
           value={systemPrompt}
           onChange={(e) => setSystemPrompt(e.target.value)}
           placeholder="输入系统提示词..."
           rows={6}
+          className="wolf-debate-input w-full p-3 text-sm font-mono resize-none"
         />
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[0.54rem]" style={{ color: '#5f5b57' }}>
           提示：根据辩手角色不同，系统会自动调整发言风格。一辩负责开篇立论，二辩补充论证，三辩负责攻辩，四辩总结陈词。
         </p>
       </div>
 
-      {/* Advanced Settings */}
-      <details className="group">
-        <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
-          高级设置
-        </summary>
-        <div className="mt-2 space-y-4">
+      {/* Advanced Settings Toggle - Wolf Style */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="w-full text-left text-xs font-mono uppercase tracking-wider py-2"
+        style={{ color: '#5f5b57', borderTop: '1px solid rgba(69,67,65,0.18)' }}
+      >
+        {showAdvanced ? '▼' : '▶'} 高级设置
+      </button>
+
+      {/* Advanced Settings - Wolf Style */}
+      {showAdvanced && (
+        <div className="space-y-4 p-3" style={{ backgroundColor: '#ede7e1', border: '1px solid rgba(69,67,65,0.18)' }}>
           {/* Thinking Mode */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <label className="text-sm font-medium">思考模式</label>
-              <p className="text-xs text-muted-foreground">
+              <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+                思考模式
+              </label>
+              <p className="text-[0.54rem]" style={{ color: '#5f5b57' }}>
                 启用深度思考，提升推理能力（部分模型支持）
               </p>
             </div>
@@ -184,13 +218,16 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
               type="checkbox"
               checked={thinkingMode}
               onChange={(e) => setThinkingMode(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              style={{ accentColor: '#6fc2ff', width: '18px', height: '18px' }}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+            {/* Temperature */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Temperature: {temperature}</label>
+              <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+                Temperature: {temperature}
+              </label>
               <input
                 type="range"
                 min="0"
@@ -199,10 +236,14 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
                 value={temperature}
                 onChange={(e) => setTemperature(parseFloat(e.target.value))}
                 className="w-full"
+                style={{ accentColor: '#6fc2ff' }}
               />
             </div>
+            {/* Max Tokens */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Max Tokens: {maxTokens}</label>
+              <label className="text-xs font-mono uppercase tracking-wider" style={{ color: '#3e3d3c' }}>
+                Max Tokens: {maxTokens}
+              </label>
               <input
                 type="range"
                 min="100"
@@ -211,20 +252,34 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
                 value={maxTokens}
                 onChange={(e) => setMaxTokens(parseInt(e.target.value))}
                 className="w-full"
+                style={{ accentColor: '#6fc2ff' }}
               />
             </div>
           </div>
         </div>
-      </details>
+      )}
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      {/* Actions - Wolf Style */}
+      <div className="flex justify-end gap-2 pt-3" style={{ borderTop: '2px solid #454341' }}>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="wolf-hard-shadow-button h-9 px-4 text-[0.58rem] font-mono uppercase"
+          style={{
+            backgroundColor: '#fbf7f2',
+            color: '#3e3d3c',
+            border: '2px solid #454341',
+            borderRadius: 0,
+          }}
+        >
           取消
-        </Button>
-        <Button type="submit">
+        </button>
+        <button
+          type="submit"
+          className="wolf-hard-shadow-button wolf-debate-control-primary h-9 px-6 text-[0.58rem] font-mono uppercase"
+        >
           保存
-        </Button>
+        </button>
       </div>
     </form>
   );

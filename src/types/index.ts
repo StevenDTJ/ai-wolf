@@ -118,6 +118,7 @@ export interface DebateSession {
   proTurns?: number;  // 正方发言轮数
   conTurns?: number;  // 反方发言轮数
   maxTurnsPerSide?: number; // 每方最大发言轮数，默认10
+  maxTurnsTotal?: number; // 双方合计最大发言轮数，默认20
 }
 
 // Application global state

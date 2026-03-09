@@ -97,13 +97,13 @@ describe('broadcasts', () => {
     expect(msg.content).not.toContain('被毒');
   });
 
-  it('includes night hunter kill in death list', () => {
+  it('includes explicit night hunter kill broadcast text', () => {
     const mockState = createState({
       nightAction: {
         protectedId: null,
         checkedId: null,
         checkResult: null,
-        killedId: null,
+        killedId: 'player-3',
         healedId: null,
         poisonedId: null,
       },
@@ -115,8 +115,8 @@ describe('broadcasts', () => {
 
     const msg = buildNightBroadcast(mockState);
     expect(msg.content).toContain('玩家2');
+    expect(msg.content).toContain('猎人带走');
   });
-
 
   it('builds day vote broadcast with hunter kill info', () => {
     const mockState = createState({
@@ -127,9 +127,7 @@ describe('broadcasts', () => {
     });
 
     const msg = buildDayVoteBroadcast(mockState, '玩家3被投票出局');
-    // 猎人击杀应明确标注
     expect(msg.content).toContain('猎人带走');
+    expect(msg.content).toContain('玩家2');
   });
 });
-
-

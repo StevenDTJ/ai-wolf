@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { Settings, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/button';
 
 interface HeaderProps {
@@ -27,42 +26,76 @@ export function Header({ onSettingsClick }: HeaderProps) {
         <div className="flex min-h-[46px] items-center justify-between gap-3 overflow-visible px-0 py-1 sm:px-1">
           <div className="flex min-w-0 items-center gap-2.5">
             <div
-              className="inline-flex min-w-0 items-center rounded-full px-3 py-1 text-[0.98rem] font-extrabold leading-none text-white"
+              className="inline-flex min-w-0 items-center rounded-none px-3 py-1 text-[0.98rem] font-extrabold leading-none text-white"
               style={{ backgroundColor: '#231f1d' }}
             >
               AI竞技场
             </div>
             <Badge
               variant="outline"
-              className="h-[1.55rem] rounded-full border-[2px] border-[#454341] bg-[#fbf7f2] px-2 text-[0.62rem] text-[#3e3d3c]"
+              className="h-[1.55rem] rounded-none border-[2px] border-[#454341] bg-[#fbf7f2] px-2 text-[0.62rem] text-[#3e3d3c]"
             >
               {isWolfPage ? '狼人杀模式' : 'AI 辩论'}
             </Badge>
           </div>
 
+          {/* Right side navigation - Wolf mode link */}
           <div className="flex items-center gap-2 overflow-visible">
             {isWolfPage ? (
+              // On wolf page: show return to debate link with settings button
+              <>
+                <Link
+                  href="/"
+                  className="utility-link text-[0.72rem] font-mono uppercase tracking-wide inline-flex items-center"
+                  style={{ color: '#3e3d3c', lineHeight: '1.2' }}
+                >
+                  ←进入AI辩论
+                </Link>
+                {onSettingsClick && (
+                  <>
+                    <div className="w-[1px] h-4" style={{ backgroundColor: '#454341', opacity: 0.3 }} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onSettingsClick}
+                      className="utility-link text-[0.72rem] font-mono uppercase tracking-wide px-0 h-auto inline-flex items-center"
+                      style={{ color: '#3e3d3c', lineHeight: '1.2' }}
+                    >
+                      设置
+                    </Button>
+                  </>
+                )}
+              </>
+            ) : (
+              // On debate page: show go to wolf mode link
               <Link
-                href="/"
-                className="utility-link flex items-center gap-2 text-[0.72rem]"
-                style={{ color: '#3e3d3c' }}
+                href="/wolf"
+                className="utility-link text-[0.72rem] font-mono uppercase tracking-wide inline-flex items-center"
+                style={{ color: '#3e3d3c', lineHeight: '1.2' }}
               >
-                <ArrowLeft className="h-4 w-4" />
-                返回 AI 辩论
+                进入狼人杀 →
               </Link>
-            ) : onSettingsClick ? (
-              <Button variant="ghost" size="sm" onClick={onSettingsClick} className="utility-link gap-2 px-0 text-[hsl(40_25%_12%)] hover:bg-transparent">
-                <Settings className="h-4 w-4" />
-                设置
-              </Button>
-            ) : null}
+            )}
+            {!isWolfPage && onSettingsClick && (
+              <>
+                <div className="w-[1px] h-4" style={{ backgroundColor: '#454341', opacity: 0.3 }} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onSettingsClick}
+                  className="utility-link text-[0.72rem] font-mono uppercase tracking-wide px-0 h-auto inline-flex items-center"
+                  style={{ color: '#3e3d3c', lineHeight: '1.2' }}
+                >
+                  设置
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>
     </header>
   );
 }
-
 
 
 

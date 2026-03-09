@@ -34,7 +34,7 @@ import {
 } from '@/lib/wolf-engine';
 import { buildContext } from '@/lib/wolf-engine/context';
 import { handleHunterElimination } from '@/lib/wolf-engine/hunterIntegration';
-import { applyHunterAfterWitch } from '@/lib/wolf-engine/hunterFlow';
+import { resolveNightHunterShot } from '@/lib/wolf-engine/hunterFlow';
 import { buildNightBroadcast, buildDayVoteBroadcast } from '@/lib/wolf-engine/broadcasts';
 import {
   generateWitchAction,
@@ -190,6 +190,33 @@ export function buildHunterFinalSpeech(
   return `我是${hunter.name}，遗言声明：我带走${target.playerNumber}号。`;
 }
 
+function appendNightHunterSpeech(
+  state: WolfGameState,
+  hunterShot: {
+    triggered: boolean;
+    hunter: WolfPlayer | null;
+    speech: string | null;
+  }
+): WolfGameState {
+  if (!hunterShot.triggered || !hunterShot.hunter || !hunterShot.speech) {
+    return state;
+  }
+
+  const finalMsg: WolfMessage = {
+    id: uuidv4(),
+    playerId: hunterShot.hunter.id,
+    playerName: hunterShot.hunter.name,
+    content: hunterShot.speech,
+    type: 'final_speech',
+    round: state.currentRound,
+    timestamp: Date.now(),
+  };
+
+  return {
+    ...state,
+    messages: [...state.messages, finalMsg],
+  };
+}
 // Hook 返回类型
 export interface UseWolfGameReturn {
   session: WolfGameState | null;
@@ -416,7 +443,8 @@ export function useWolfGame(): UseWolfGameReturn {
     const witch = getWitch(state);
 
     if (!witch || !witch.isAlive) {
-      const nightState = applyHunterAfterWitch(state);
+      const hunterShot = await resolveNightHunterShot(state);
+      const nightState = appendNightHunterSpeech(hunterShot.state, hunterShot);
       const dayState = addNightDeathSummary(startDay(nightState));
       queueTransition(dayState, 'to_day');
       return;
@@ -482,7 +510,8 @@ export function useWolfGame(): UseWolfGameReturn {
     const seer = getSeer(state);
 
     if (!seer || !seer.isAlive) {
-      const nightState = applyHunterAfterWitch(state);
+      const hunterShot = await resolveNightHunterShot(state);
+      const nightState = appendNightHunterSpeech(hunterShot.state, hunterShot);
       const dayState = addNightDeathSummary(startDay(nightState));
       queueTransition(dayState, 'to_day');
       return;
@@ -527,7 +556,8 @@ export function useWolfGame(): UseWolfGameReturn {
       messages: [...newState.messages, seerReasonMsg, seerMsg],
     };
 
-    newState = applyHunterAfterWitch(newState);
+    const hunterShot = await resolveNightHunterShot(newState);
+    newState = appendNightHunterSpeech(hunterShot.state, hunterShot);
     newState = addNightDeathSummary(startDay(newState));
 
     queueTransition(newState, 'to_day');
@@ -876,6 +906,7 @@ export function useWolfGame(): UseWolfGameReturn {
     stopGeneration,
   };
 }
+
 
 
 

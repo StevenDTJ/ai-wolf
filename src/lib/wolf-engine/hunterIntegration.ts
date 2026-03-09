@@ -8,64 +8,117 @@ import { getAlivePlayers } from './gameLogic';
 // AI 调用类型（方便测试注入 mock）
 type AICallFn = (player: WolfPlayer, prompt: string, temperature: number) => Promise<string>;
 
+export interface HunterShotResolution {
+  state: WolfGameState;
+  triggered: boolean;
+  hunter: WolfPlayer | null;
+  target: WolfPlayer | null;
+  phase: 'night' | 'day' | null;
+  speech: string | null;
+}
+
+interface ResolveHunterShotOptions {
+  hunterId?: string | null;
+  phase?: 'night' | 'day';
+}
+
+function buildHunterShotSpeech(hunter: WolfPlayer, target: WolfPlayer): string {
+  return `我是${hunter.name}，遗言声明：我带走${target.playerNumber}号。`;
+}
+
+export async function resolveHunterShot(
+  state: WolfGameState,
+  options: ResolveHunterShotOptions = {},
+  aiCallFn?: AICallFn
+): Promise<HunterShotResolution> {
+  const hunter = options.hunterId
+    ? state.players.find(player => player.id === options.hunterId)
+    : state.players.find(player => player.id === state.eliminatedPlayerId);
+
+  if (!hunter || hunter.role !== 'hunter') {
+    return {
+      state,
+      triggered: false,
+      hunter: null,
+      target: null,
+      phase: null,
+      speech: null,
+    };
+  }
+
+  const phase = options.phase || (state.status.startsWith('night') || state.status === 'werewolf_chat' ? 'night' : 'day');
+
+  if (state.hunterKillTargetId) {
+    const existingTarget = state.players.find(player => player.id === state.hunterKillTargetId) || null;
+    return {
+      state,
+      triggered: Boolean(existingTarget),
+      hunter,
+      target: existingTarget,
+      phase: state.hunterKillPhase || phase,
+      speech: existingTarget ? buildHunterShotSpeech(hunter, existingTarget) : null,
+    };
+  }
+
+  const alivePlayers = getAlivePlayers(state).filter(player => player.id !== hunter.id);
+  if (alivePlayers.length === 0) {
+    return {
+      state,
+      triggered: false,
+      hunter,
+      target: null,
+      phase,
+      speech: null,
+    };
+  }
+
+  const aiFn = aiCallFn || callAI;
+  let target = alivePlayers[0];
+
+  try {
+    const prompt = getHunterKillPrompt(hunter, alivePlayers);
+    const response = await aiFn(hunter, prompt, 0.8);
+    const parsedTargetId = parseHunterKillTarget(response, alivePlayers);
+    if (parsedTargetId) {
+      const parsedTarget = alivePlayers.find(player => player.id === parsedTargetId);
+      if (parsedTarget) {
+        target = parsedTarget;
+      }
+    }
+  } catch (error) {
+    console.error('猎人击杀 AI 调用失败:', error);
+  }
+
+  const processedState = processHunterKill(state, target.id);
+  const nextState: WolfGameState = {
+    ...processedState,
+    hunterKillPhase: phase,
+  };
+
+  return {
+    state: nextState,
+    triggered: true,
+    hunter,
+    target,
+    phase,
+    speech: buildHunterShotSpeech(hunter, target),
+  };
+}
+
 // 处理猎人被淘汰
 export async function handleHunterElimination(
   state: WolfGameState,
   aiCallFn?: AICallFn
 ): Promise<WolfGameState> {
-  // 没有淘汰玩家，直接返回
   if (!state.eliminatedPlayerId) {
     return state;
   }
 
-  // 找到被淘汰的玩家
-  const eliminatedPlayer = state.players.find(
-    p => p.id === state.eliminatedPlayerId
+  const result = await resolveHunterShot(
+    state,
+    { hunterId: state.eliminatedPlayerId, phase: 'day' },
+    aiCallFn
   );
 
-  // 如果被淘汰的不是猎人，直接返回
-  if (!eliminatedPlayer || eliminatedPlayer.role !== 'hunter') {
-    return state;
-  }
-
-  // 如果猎人已经被处理过击杀（避免重复）
-  if (state.hunterKillTargetId) {
-    return state;
-  }
-
-  // 获取存活玩家（排除猎人自己）
-  const alivePlayers = getAlivePlayers(state).filter(
-    p => p.id !== eliminatedPlayer.id
-  );
-
-  // 如果没有存活玩家，返回
-  if (alivePlayers.length === 0) {
-    return state;
-  }
-
-  // 使用注入的 AI 函数或默认的 callAI
-  const aiFn = aiCallFn || callAI;
-
-  try {
-    // 生成提示词
-    const prompt = getHunterKillPrompt(eliminatedPlayer, alivePlayers);
-
-    // 调用 AI 获取击杀目标
-    const response = await aiFn(eliminatedPlayer, prompt, 0.8);
-    const targetId = parseHunterKillTarget(response, alivePlayers);
-
-    // 如果 AI 返回了有效目标，执行击杀
-    if (targetId) {
-      return processHunterKill(state, targetId);
-    }
-
-    // 如果 AI 没有返回有效目标，随机选择
-    const randomTarget = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-    return processHunterKill(state, randomTarget.id);
-  } catch (error) {
-    console.error('猎人击杀 AI 调用失败:', error);
-    // AI 调用失败时，随机选择
-    const randomTarget = alivePlayers[Math.floor(Math.random() * alivePlayers.length)];
-    return processHunterKill(state, randomTarget.id);
-  }
+  return result.state;
 }

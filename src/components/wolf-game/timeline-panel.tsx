@@ -23,7 +23,7 @@ interface TimelinePanelProps {
 }
 
 const TONE_CLASS_MAP = {
-  neutral: 'border-[2px] border-[#454341] bg-[rgba(255,255,255,0.96)]',
+  neutral: 'rounded-none border-[2px] border-[#454341] bg-[rgba(255,255,255,0.96)]',
   night: 'border-[2px] border-[#454341] bg-[#6fc2ff]',
   day: 'border-[2px] border-[#454341] bg-[#ffde00]',
   vote: 'border-[2px] border-[#454341] bg-[#ff9538]',
@@ -95,7 +95,7 @@ export function TimelinePanel({ events, viewMode }: TimelinePanelProps) {
                 <article
                   key={event.id}
                   className={cn(
-                    'wolf-timeline-item',
+                    'wolf-timeline-item rounded-none',
                     TONE_CLASS_MAP[eventMeta.tone],
                     eventMeta.isCritical && 'wolf-event-critical'
                   )}
@@ -132,5 +132,6 @@ export function TimelinePanel({ events, viewMode }: TimelinePanelProps) {
     </Card>
   );
 }
+
 
 

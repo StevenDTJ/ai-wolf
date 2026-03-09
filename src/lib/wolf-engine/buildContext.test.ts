@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { buildContext } from './context';
-import { WolfGameState, WolfPlayer } from '@/types';
+import type { WolfGameState } from './types';
+import type { WolfPlayer } from '@/types';
 import { createWolfGame } from './gameLogic';
 
 describe('buildContext', () => {

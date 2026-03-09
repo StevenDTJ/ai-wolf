@@ -1,16 +1,14 @@
 import { AgentConfig, STANCE_INFO } from '@/types';
-import { Edit, Trash2, GripVertical } from 'lucide-react';
-import { Button } from './ui/button';
+import { GripVertical } from 'lucide-react';
 
 interface AgentCardProps {
   agent: AgentConfig;
   index: number;
-  variant?: 'default' | 'compact';
+  variant?: 'default' | 'compact' | 'stage';
   onEdit: (agent: AgentConfig) => void;
-  onDelete: (id: string) => void;
-  onDragStart: (e: React.DragEvent, index: number) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, index: number) => void;
+  onDragStart?: (e: React.DragEvent, index: number) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent, index: number) => void;
 }
 
 export function AgentCard({
@@ -18,7 +16,6 @@ export function AgentCard({
   index,
   variant = 'default',
   onEdit,
-  onDelete,
   onDragStart,
   onDragOver,
   onDrop,
@@ -31,7 +28,7 @@ export function AgentCard({
     switch (agent.stance) {
       case 'pro':
         return {
-          bg: '#6fc2ff',
+          bg: '#53dbc9',
           text: '#3e3d3c',
         };
       case 'con':
@@ -41,7 +38,7 @@ export function AgentCard({
         };
       case 'judge':
         return {
-          bg: '#ffde00',
+          bg: '#ff9538',
           text: '#3e3d3c',
         };
       default:
@@ -57,63 +54,94 @@ export function AgentCard({
   if (variant === 'compact') {
     return (
       <div
-        className="wolf-debate-agent-card relative group cursor-move p-2.5"
-        draggable
-        onDragStart={(e) => onDragStart(e, index)}
-        onDragOver={onDragOver}
-        onDrop={(e) => onDrop(e, index)}
+        className="wolf-debate-agent-card relative group cursor-pointer p-2.5"
+        draggable={Boolean(onDragStart)}
+        onDragStart={(e) => onDragStart?.(e, index)}
+        onDragOver={(e) => onDragOver?.(e)}
+        onDrop={(e) => onDrop?.(e, index)}
+        role="button"
+        tabIndex={0}
+        onClick={() => onEdit(agent)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onEdit(agent);
+          }
+        }}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 min-w-0">
               <GripVertical className="w-3.5 h-3.5 shrink-0" style={{ color: '#5f5b57' }} />
-              <span className="text-xs font-medium truncate" style={{ color: '#3e3d3c' }}>
+              <span className="text-[0.72rem] font-medium truncate" style={{ color: '#3e3d3c' }}>
                 {agent.name || '未命名辩手'}
               </span>
               <span
                 className="shrink-0 font-mono text-[0.5rem] uppercase tracking-wider px-1.5 py-0.5"
-                style={{ backgroundColor: stanceStyle.bg, color: stanceStyle.text, border: '1px solid #454341' }}
+                style={{ backgroundColor: stanceStyle.bg, color: stanceStyle.text, border: '1px solid rgba(69,67,65,0.82)' }}
               >
                 {stanceInfo.label}
               </span>
             </div>
-            <div className="mt-1.5 flex items-center gap-2 text-[0.54rem] font-mono" style={{ color: '#5f5b57' }}>
+            <div className="mt-1.5 flex items-center gap-2 text-[0.52rem] font-mono" style={{ color: '#5f5b57' }}>
               <span className="truncate max-w-[120px]" title={agent.model}>
                 {agent.model}
               </span>
               <span style={{ color: hasApiKey ? '#53dbc9' : '#ff9538' }}>{hasApiKey ? '已配置' : '未配置'}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              size="sm"
-              onClick={() => onEdit(agent)}
-              className="wolf-hard-shadow-button h-6 px-1.5"
-              style={{ backgroundColor: '#fbf7f2', color: '#3e3d3c', border: '2px solid #454341', borderRadius: 0 }}
-            >
-              <Edit className="w-3 h-3" />
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => onDelete(agent.id)}
-              className="wolf-hard-shadow-button h-6 px-1.5"
-              style={{ backgroundColor: '#fbf7f2', color: '#ff7169', border: '2px solid #454341', borderRadius: 0 }}
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
-          </div>
         </div>
       </div>
     );
   }
 
+  if (variant === 'stage') {
+    return (
+      <button
+        type="button"
+        className="debate-stage-float-card transition-transform duration-150 hover:-translate-y-0.5"
+        style={{
+          backgroundColor: stanceStyle.bg,
+          color: stanceStyle.text,
+          border: '2px solid #454341',
+          borderRadius: 0,
+        }}
+        onClick={() => onEdit(agent)}
+      >
+        <div className="debate-stage-float-card-label">{stanceInfo.label}</div>
+        <div className="debate-stage-float-card-name">{agent.name || '未命名角色'}</div>
+        <div className="debate-stage-float-card-meta">
+          <span className="debate-stage-float-card-key">MODEL</span>
+          <span className="debate-stage-float-card-value" title={agent.model}>
+            {agent.model}
+          </span>
+        </div>
+        <div className="debate-stage-float-card-meta">
+          <span className="debate-stage-float-card-key">STATUS</span>
+          <span className="debate-stage-float-card-value">
+            {hasApiKey ? '已配置' : '未配置'}
+          </span>
+        </div>
+      </button>
+    );
+  }
+
   return (
     <div
-      className="wolf-debate-agent-card relative group cursor-move p-3"
-      draggable
-      onDragStart={(e) => onDragStart(e, index)}
-      onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, index)}
+      className="wolf-debate-agent-card relative group cursor-pointer p-3"
+      draggable={Boolean(onDragStart)}
+      onDragStart={(e) => onDragStart?.(e, index)}
+      onDragOver={(e) => onDragOver?.(e)}
+      onDrop={(e) => onDrop?.(e, index)}
+      role="button"
+      tabIndex={0}
+      onClick={() => onEdit(agent)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onEdit(agent);
+        }
+      }}
     >
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -166,36 +194,6 @@ export function AgentCard({
         </div>
       </div>
 
-      {/* Action buttons - Wolf style */}
-      <div className="flex gap-2 mt-2">
-        <Button
-          size="sm"
-          onClick={() => onEdit(agent)}
-          className="flex-1 wolf-hard-shadow-button h-7 text-[0.54rem] font-mono uppercase"
-          style={{
-            backgroundColor: '#fbf7f2',
-            color: '#3e3d3c',
-            border: '2px solid #454341',
-            borderRadius: 0,
-          }}
-        >
-          <Edit className="w-3 h-3 mr-1" />
-          编辑
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => onDelete(agent.id)}
-          className="wolf-hard-shadow-button h-7 px-2"
-          style={{
-            backgroundColor: '#fbf7f2',
-            color: '#ff7169',
-            border: '2px solid #454341',
-            borderRadius: 0,
-          }}
-        >
-          <Trash2 className="w-3 h-3" />
-        </Button>
-      </div>
     </div>
   );
 }

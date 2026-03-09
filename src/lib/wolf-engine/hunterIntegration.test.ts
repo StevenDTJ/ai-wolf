@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { handleHunterElimination } from './hunterIntegration';
+import { handleHunterElimination, resolveHunterShot } from './hunterIntegration';
 import { WolfGameState } from './types';
 import { WolfPlayer } from '@/types';
 
@@ -19,7 +19,7 @@ const makePlayers = (): WolfPlayer[] => {
     id: `p${index + 1}`,
     name: `玩家${index + 1}`,
     role,
-    isAlive: index < 7, // p8 (hunter) is dead
+    isAlive: index < 7,
     hasWill: true,
     wasProtected: false,
     playerNumber: index + 1,
@@ -61,7 +61,6 @@ const makeState = (eliminatedId?: string): WolfGameState => ({
   wolfKillHistory: [],
 });
 
-// Mock AI 函数
 const mockAICall = async () => '选择：3';
 
 describe('handleHunterElimination', () => {
@@ -74,7 +73,7 @@ describe('handleHunterElimination', () => {
   });
 
   it('returns original state when eliminated player is not hunter', async () => {
-    const state = makeState('p1'); // villager
+    const state = makeState('p1');
 
     const result = await handleHunterElimination(state, mockAICall);
 
@@ -100,5 +99,31 @@ describe('handleHunterElimination', () => {
 
     expect(result.hunterKillTargetId).toBe('p3');
     expect(target?.isAlive).toBe(false);
+  });
+});
+
+describe('resolveHunterShot', () => {
+  it('returns night hunter speech and target metadata when hunter dies without save', async () => {
+    const state: WolfGameState = {
+      ...makeState(undefined),
+      status: 'night_witch',
+      players: makePlayers().map(player => player.id === 'p8' ? { ...player, isAlive: false } : player),
+      nightAction: {
+        protectedId: null,
+        checkedId: null,
+        checkResult: null,
+        killedId: 'p8',
+        healedId: null,
+        poisonedId: null,
+      },
+    };
+
+    const result = await resolveHunterShot(state, { hunterId: 'p8', phase: 'night' }, async () => '理由：直觉像狼\n选择：3');
+
+    expect(result.triggered).toBe(true);
+    expect(result.phase).toBe('night');
+    expect(result.target?.id).toBe('p3');
+    expect(result.state.hunterKillTargetId).toBe('p3');
+    expect(result.speech).toContain('带走3号');
   });
 });

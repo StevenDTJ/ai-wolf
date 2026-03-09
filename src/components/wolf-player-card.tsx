@@ -43,6 +43,7 @@ export function WolfPlayerCard({ player, isCurrentSpeaker = false, showIdentity 
   const RoleIcon = role.icon;
   const stateMeta = getPlayerStateMeta(player, { isCurrentSpeaker, showIdentity });
   const configured = Boolean(player.apiKey && player.model);
+  const isEliminated = stateMeta.emphasis === 'out';
 
   return (
     <article
@@ -58,27 +59,30 @@ export function WolfPlayerCard({ player, isCurrentSpeaker = false, showIdentity 
       className={cn(
         'group relative overflow-hidden rounded-none border px-3 py-2 transition-[transform,border-color,box-shadow,background-color] duration-200 hover:translate-x-[2px] hover:-translate-y-[2px]',
         onEdit && 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#454341] focus-visible:ring-offset-2',
-        EMPHASIS_CLASS_MAP[stateMeta.emphasis]
+        EMPHASIS_CLASS_MAP[stateMeta.emphasis],
+        isEliminated && 'border-[#454341] bg-[#111111] text-[#f5efe6]'
       )}
     >
       <div className="grid gap-2">
         <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-          <span className="wolf-seat-pill">#{player.playerNumber}</span>
+          <span className={cn('wolf-seat-pill', isEliminated && 'border-[#f5efe6] bg-[#f5efe6] text-[#111111]')}>#{player.playerNumber}</span>
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold leading-4 text-[#3e3d3c]">{player.name}</div>
+            <div className={cn('truncate text-[12px] font-semibold leading-4 text-[#3e3d3c]', isEliminated && 'text-[#f5efe6]')}>{player.name}</div>
             <div className="mt-1 flex flex-wrap items-center gap-1">
-              <Badge variant="outline" className={cn('gap-1 rounded-none px-2 py-0.5 text-[9px] font-medium', role.badgeClass)}>
+              <Badge variant="outline" className={cn('gap-1 rounded-none px-2 py-0.5 text-[9px] font-medium', isEliminated ? 'border-[2px] border-[#8a7a2f] bg-[#1a1a1a] text-[#f8d84a]' : role.badgeClass)}>
                 <RoleIcon className="h-3 w-3" />
                 {showIdentity ? role.label : '身份未公开'}
               </Badge>
-              <Badge variant="outline" className="rounded-none border-[2px] border-[#454341] bg-[var(--panel)] px-2 py-0.5 text-[9px] text-[#3e3d3c]">{stateMeta.stateLabel}</Badge>
+              <Badge variant="outline" className={cn('rounded-none border-[2px] border-[#454341] bg-[var(--panel)] px-2 py-0.5 text-[9px] text-[#3e3d3c]', isEliminated && 'bg-[#1a1a1a] text-[#f5efe6]')}>
+                {stateMeta.stateLabel}
+              </Badge>
             </div>
           </div>
           {onRemove ? (
             <Button
               variant="ghost"
               size="icon-sm"
-              className="h-7 w-7 shrink-0 rounded-none border-[2px] border-[#454341] bg-[var(--panel)] text-[#69211d] hover:bg-[#ff7169] hover:text-[#69211d]"
+              className={cn('h-7 w-7 shrink-0 rounded-none border-[2px] border-[#454341] bg-[var(--panel)] text-[#69211d] hover:bg-[#ff7169] hover:text-[#69211d]', isEliminated && 'bg-[#1a1a1a] text-[#f5efe6] hover:bg-[#2a2a2a] hover:text-[#f5efe6]')}
               onClick={(event) => {
                 event.stopPropagation();
                 onRemove();
@@ -91,13 +95,15 @@ export function WolfPlayerCard({ player, isCurrentSpeaker = false, showIdentity 
         </div>
 
         <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-          <div className="wolf-player-meta-row rounded-none min-w-0">
-            <span className="wolf-player-meta-label">模型</span>
-            <span className="block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[9px] text-[#3e3d3c]">{player.model || '未设置'}</span>
+          <div className={cn('wolf-player-meta-row rounded-none min-w-0', isEliminated && 'border-[#454341] bg-[#1a1a1a]')}>
+            <span className={cn('wolf-player-meta-label', isEliminated && 'text-[#c8beb3]')}>模型</span>
+            <span className={cn('block overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[9px] text-[#3e3d3c]', isEliminated && 'text-[#f5efe6]')}>
+              {player.model || '未设置'}
+            </span>
           </div>
-          <div className="wolf-player-meta-row rounded-none min-w-[74px] px-2.5">
-            <span className="wolf-player-meta-label">配置</span>
-            <span className={cn('inline-flex items-center gap-1 text-[9px] font-medium', configured ? 'text-[#173f3a]' : 'text-[#69211d]')}>
+          <div className={cn('wolf-player-meta-row rounded-none min-w-[74px] px-2.5', isEliminated && 'border-[#454341] bg-[#1a1a1a]')}>
+            <span className={cn('wolf-player-meta-label', isEliminated && 'text-[#c8beb3]')}>配置</span>
+            <span className={cn('inline-flex items-center gap-1 text-[9px] font-medium', isEliminated ? 'text-[#f5efe6]' : configured ? 'text-[#173f3a]' : 'text-[#69211d]')}>
               <ShieldCheck className="h-3 w-3" />
               {configured ? '完成' : '待补全'}
             </span>
@@ -107,5 +113,3 @@ export function WolfPlayerCard({ player, isCurrentSpeaker = false, showIdentity 
     </article>
   );
 }
-
-

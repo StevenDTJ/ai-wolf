@@ -9,24 +9,23 @@ import { v4 as uuidv4 } from 'uuid';
  * @returns 系统消息
  */
 export function buildNightBroadcast(state: WolfGameState): WolfMessage {
-  // 收集所有夜间死亡玩家
   const deadIds: string[] = [];
 
-  // 狼人击杀
   if (state.nightAction.killedId) {
     deadIds.push(state.nightAction.killedId);
   }
 
-  // 女巫毒药
   if (state.nightAction.poisonedId) {
     deadIds.push(state.nightAction.poisonedId);
   }
 
-  // 猎人夜间击杀（如果猎人被杀）
-  if (state.hunterKillPhase === 'night' && state.hunterKillRound === state.currentRound && state.hunterKillTargetId) {
-    deadIds.push(state.hunterKillTargetId);
+  const hunterTarget = state.hunterKillPhase === 'night' && state.hunterKillRound === state.currentRound && state.hunterKillTargetId
+    ? state.players.find(player => player.id === state.hunterKillTargetId) || null
+    : null;
+
+  if (hunterTarget) {
+    deadIds.push(hunterTarget.id);
   }
-  // 注意：猎人击杀会在 hunterFlow 中处理，这里只需要列出最终死亡名单
 
   const uniqueDeadIds = [...new Set(deadIds)];
 
@@ -38,6 +37,9 @@ export function buildNightBroadcast(state: WolfGameState): WolfMessage {
       .map(id => state.players.find(p => p.id === id)?.name || '某人')
       .join('、');
     content = `天亮了，昨夜死亡：${names}`;
+    if (hunterTarget) {
+      content += `；猎人带走了 ${hunterTarget.name}`;
+    }
   }
 
   return {
@@ -60,7 +62,6 @@ export function buildNightBroadcast(state: WolfGameState): WolfMessage {
 export function buildDayVoteBroadcast(state: WolfGameState, baseMessage: string): WolfMessage {
   let content = baseMessage;
 
-  // 如果猎人击杀了玩家，明确标注
   if (state.hunterKillPhase === 'day' && state.hunterKillRound === state.currentRound && state.hunterKillTargetId) {
     const killedTarget = state.players.find(p => p.id === state.hunterKillTargetId);
     if (killedTarget) {
@@ -78,4 +79,3 @@ export function buildDayVoteBroadcast(state: WolfGameState, baseMessage: string)
     timestamp: Date.now(),
   };
 }
-

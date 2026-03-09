@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { deriveUiEvents, type WolfGameState } from './uiEventAdapter';
+import { deriveUiEvents } from './uiEventAdapter';
+import type { WolfGameState } from './types';
 import { WolfRole } from '@/types';
 
 function createMockPlayer(id: string, name: string, role: WolfRole) {

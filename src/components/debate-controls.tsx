@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { Play, Pause, RotateCcw, SkipForward, Square, StopCircle, Flag } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Play, Pause, RotateCcw, SkipForward, Square, StopCircle, Flag, Gauge } from 'lucide-react';
 import { DebateSession, DebateStage, DEBATE_FLOW } from '@/types';
 
 interface DebateControlsProps {
   session: DebateSession;
   isLoading: boolean;
   currentStreamingContent: string;
-  onStart: () => void;
   onPause: () => void;
   onResume: () => void;
   onReset: () => void;
@@ -15,13 +15,15 @@ interface DebateControlsProps {
   // 8-Person mode props
   currentStageId?: number;
   onNextStage?: () => void;
+  // Speed control
+  speed?: number;
+  onSpeedChange?: (speed: number) => void;
 }
 
 export function DebateControls({
   session,
   isLoading,
   currentStreamingContent,
-  onStart,
   onPause,
   onResume,
   onReset,
@@ -29,10 +31,26 @@ export function DebateControls({
   onSkip,
   currentStageId,
   onNextStage,
+  // Speed control - REMOVED fake internal state - use external only
+  speed,
+  onSpeedChange,
 }: DebateControlsProps) {
+  // Speed slider is now properly controlled - if no external handler, hide it
+  const hasSpeedControl = onSpeedChange !== undefined;
   const currentAgent = session.agents[session.currentAgentIndex];
   const isStreaming = currentStreamingContent.length > 0;
   const is8PersonMode = currentStageId !== undefined;
+
+  // Use external speed if provided
+  const speedValue = speed ?? 50;
+
+  // Get speed label
+  const getSpeedLabel = (value: number) => {
+    if (value <= 25) return '慢速';
+    if (value <= 50) return '中速';
+    if (value <= 75) return '快速';
+    return '极快';
+  };
 
   // Get current stage info
   const currentStage: DebateStage | undefined = is8PersonMode
@@ -42,9 +60,9 @@ export function DebateControls({
   // Get team color for Wolf style
   const getTeamColor = (team?: 'pro' | 'con' | 'judge') => {
     switch (team) {
-      case 'pro': return { bg: '#6fc2ff', text: '#3e3d3c' };
+      case 'pro': return { bg: '#53dbc9', text: '#3e3d3c' };
       case 'con': return { bg: '#ff7169', text: '#3e3d3c' };
-      case 'judge': return { bg: '#ffde00', text: '#3e3d3c' };
+      case 'judge': return { bg: '#ff9538', text: '#3e3d3c' };
       default: return { bg: '#ede7e1', text: '#3e3d3c' };
     }
   };
@@ -59,7 +77,7 @@ export function DebateControls({
         /* 8-Person Mode Status */
         <div className="flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-2">
-            <Flag className="w-3 h-3" style={{ color: '#5f5b57' }} />
+            <Flag className="w-4 h-4" style={{ color: '#5f5b57' }} />
             <span style={{ color: '#5f5b57' }}>阶段:</span>
             <span style={{ color: '#3e3d3c', fontWeight: 600 }}>{currentStage.id}/15</span>
           </div>
@@ -144,25 +162,25 @@ export function DebateControls({
               size="sm"
               onClick={onPause}
               disabled={isLoading || isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-secondary h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-secondary h-9 text-[0.65rem]"
             >
-              <Pause className="w-3 h-3 mr-1" />
+              <Pause className="w-4 h-4 mr-2" />
               暂停
             </Button>
             <Button
               size="sm"
               onClick={is8PersonMode && onNextStage ? onNextStage : onSkip}
               disabled={isLoading || isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-primary h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-primary h-9 text-[0.65rem]"
             >
               {isLoading || isStreaming ? (
                 <>
-                  <Square className="w-3 h-3 mr-1 animate-pulse" />
+                  <Square className="w-4 h-4 mr-2 animate-pulse" />
                   生成中...
                 </>
               ) : (
                 <>
-                  <SkipForward className="w-3 h-3 mr-1" />
+                  <SkipForward className="w-4 h-4 mr-2" />
                   {is8PersonMode ? '下一阶段' : '下一轮'}
                 </>
               )}
@@ -171,9 +189,9 @@ export function DebateControls({
               size="sm"
               onClick={onStop}
               disabled={!isLoading && !isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-danger h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-danger h-9 text-[0.65rem]"
             >
-              <StopCircle className="w-3 h-3 mr-1" />
+              <StopCircle className="w-4 h-4 mr-2" />
               停止
             </Button>
           </>
@@ -183,28 +201,28 @@ export function DebateControls({
               size="sm"
               onClick={onResume}
               disabled={isLoading || isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-primary h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-primary h-9 text-[0.65rem]"
             >
-              <Play className="w-3 h-3 mr-1" />
+              <Play className="w-4 h-4 mr-2" />
               继续
             </Button>
             <Button
               size="sm"
               onClick={is8PersonMode && onNextStage ? onNextStage : onSkip}
               disabled={isLoading || isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-secondary h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-secondary h-9 text-[0.65rem]"
               style={{ backgroundColor: '#fbf7f2' }}
             >
-              <SkipForward className="w-3 h-3 mr-1" />
+              <SkipForward className="w-4 h-4 mr-2" />
               {is8PersonMode ? '下一阶段' : '跳过'}
             </Button>
             <Button
               size="sm"
               onClick={onStop}
               disabled={!isLoading && !isStreaming}
-              className="wolf-hard-shadow-button wolf-debate-control-danger h-8 text-[0.58rem]"
+              className="wolf-hard-shadow-button wolf-debate-control-danger h-9 text-[0.65rem]"
             >
-              <StopCircle className="w-3 h-3 mr-1" />
+              <StopCircle className="w-4 h-4 mr-2" />
               停止
             </Button>
           </>
@@ -213,7 +231,7 @@ export function DebateControls({
         <Button
           size="sm"
           onClick={onReset}
-          className="wolf-hard-shadow-button h-8 text-[0.58rem]"
+          className="wolf-hard-shadow-button h-9 text-[0.65rem]"
           style={{
             backgroundColor: '#ede7e1',
             color: '#3e3d3c',
@@ -221,7 +239,7 @@ export function DebateControls({
             borderRadius: 0,
           }}
         >
-          <RotateCcw className="w-3 h-3 mr-1" />
+          <RotateCcw className="w-4 h-4 mr-2" />
           重置
         </Button>
       </div>
@@ -249,6 +267,34 @@ export function DebateControls({
           );
         })}
       </div>
+
+      {/* Speed Slider - Only show when speed control is actually connected */}
+      {hasSpeedControl && (
+        <div className="flex items-center gap-2 px-1">
+          <Gauge className="w-4 h-4 shrink-0" style={{ color: '#5f5b57' }} />
+          <span className="text-[0.5rem] font-mono uppercase shrink-0" style={{ color: '#5f5b57', width: '24px' }}>
+            {getSpeedLabel(speedValue)}
+          </span>
+          <Slider
+            value={[speedValue]}
+            onValueChange={(value) => onSpeedChange?.(value[0])}
+            min={10}
+            max={100}
+            step={10}
+            className="wolf-debate-slider flex-1"
+          />
+          <span className="text-[0.5rem] font-mono shrink-0" style={{ color: '#3e3d3c', width: '28px', textAlign: 'right' }}>
+            {speedValue}%
+          </span>
+        </div>
+      )}
+      {/* Placeholder when speed control is not available - removed fake control */}
+      {!hasSpeedControl && (
+        <div className="flex items-center gap-2 px-1 text-[0.5rem] font-mono" style={{ color: '#5f5b57' }}>
+          <Gauge className="w-4 h-4 shrink-0" style={{ color: '#5f5b57' }} />
+          <span>速度控制待接入</span>
+        </div>
+      )}
     </div>
   );
 }

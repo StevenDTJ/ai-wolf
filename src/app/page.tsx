@@ -1,17 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
-import { MessageSquare, Plus, Send, Users } from 'lucide-react';
+import { ChevronDown, ChevronUp, Pause, Play, Send } from 'lucide-react';
 import { Header } from '@/components/header';
 import { AgentCard } from '@/components/agent-card';
 import { AgentForm } from '@/components/agent-form';
 import { MessageBubble } from '@/components/message-bubble';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -24,36 +21,57 @@ import {
   loadAgentsFromStorage,
   saveAgentsToStorage,
 } from '@/hooks/useDebate';
-import { AgentConfig, Stance } from '@/types';
+import { AgentConfig } from '@/types';
 import {
-  buildTwoPersonRosterRows,
   getTwoPersonComposerState,
+  getTwoPersonFooterActionState,
   getTwoPersonFrameSpec,
   getTwoPersonIdleSpec,
-  getTwoPersonRailState,
+  getTwoPersonTurnsLeftLabel,
   isTwoPersonLaunchEnabled,
+  validateTwoPersonTurnLimit,
 } from '@/lib/debate-stage-layout';
 
-export default function Home() {
-  const pathname = usePathname();
+function ensureTwoPersonAgents(saved: AgentConfig[]): AgentConfig[] {
+  const items = [...saved];
 
+  if (!items.some((agent) => agent.stance === 'pro')) {
+    items.push({ ...createDefaultAgent('pro'), name: '正方一辩', model: 'gpt-4o-mini' });
+  }
+
+  if (!items.some((agent) => agent.stance === 'con')) {
+    items.push({ ...createDefaultAgent('con'), name: '反方一辩', model: 'gpt-4o-mini' });
+  }
+
+  if (!items.some((agent) => agent.stance === 'judge')) {
+    items.push({ ...createDefaultAgent('judge'), name: '裁判', model: 'gpt-4o-mini' });
+  }
+
+  return items;
+}
+
+export default function Home() {
   const [agents, setAgents] = useState<AgentConfig[]>(() => {
-    const saved = loadAgentsFromStorage();
+    const saved = ensureTwoPersonAgents(loadAgentsFromStorage());
     if (saved.length > 0) return saved;
-    return [
+    return ensureTwoPersonAgents([
       { ...createDefaultAgent('pro'), name: '正方一辩', model: 'gpt-4o-mini' },
       { ...createDefaultAgent('con'), name: '反方一辩', model: 'gpt-4o-mini' },
-    ];
+    ]);
   });
   const [editingAgent, setEditingAgent] = useState<AgentConfig | null>(null);
   const [isAgentDialogOpen, setIsAgentDialogOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [topic, setTopic] = useState('');
+  const [turnLimitInput, setTurnLimitInput] = useState('20');
+  const [turnLimitValue, setTurnLimitValue] = useState(20);
+  const [turnLimitError, setTurnLimitError] = useState<string | null>(null);
+  const [isEditingTurnLimit, setIsEditingTurnLimit] = useState(false);
   const [debateMode, setDebateMode] = useState<'2person' | '8person'>('2person');
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [defaultBaseUrl, setDefaultBaseUrl] = useState('https://api.openai.com/v1');
   const [defaultApiKey, setDefaultApiKey] = useState('');
   const messageViewportRef = useRef<HTMLDivElement | null>(null);
+  const turnLimitInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     session,
@@ -65,7 +83,6 @@ export default function Home() {
     resumeDebate,
     resetDebate,
     generateNextTurn,
-    stopGeneration,
   } = useDebate();
 
   useEffect(() => {
@@ -96,6 +113,13 @@ export default function Home() {
     }
   }, [session?.messages.length, currentStreamingContent]);
 
+  useEffect(() => {
+    if (isEditingTurnLimit && !session) {
+      turnLimitInputRef.current?.focus();
+      turnLimitInputRef.current?.select();
+    }
+  }, [isEditingTurnLimit, session]);
+
   const hasConfiguredPro = agents.some((agent) => agent.stance === 'pro' && agent.apiKey.trim().length > 0);
   const hasConfiguredCon = agents.some((agent) => agent.stance === 'con' && agent.apiKey.trim().length > 0);
   const canLaunch = isTwoPersonLaunchEnabled(topic, hasConfiguredPro, hasConfiguredCon);
@@ -103,24 +127,37 @@ export default function Home() {
   const frameSpec = getTwoPersonFrameSpec(Boolean(session?.isRunning));
   const idleSpec = getTwoPersonIdleSpec();
   const currentSpeaker = session?.agents[session.currentAgentIndex];
-  const railState = getTwoPersonRailState({
-    currentTurn: session?.currentTurn ?? 1,
-    currentSpeakerName: currentSpeaker?.name ?? '待开始',
-    isRunning: Boolean(session?.isRunning),
+  const proAgent = agents.find((agent) => agent.stance === 'pro');
+  const conAgent = agents.find((agent) => agent.stance === 'con');
+  const judgeAgent = agents.find((agent) => agent.stance === 'judge');
+  const turnsLeftLabel = getTwoPersonTurnsLeftLabel({
+    proTurns: session?.proTurns,
+    conTurns: session?.conTurns,
+    maxTurnsPerSide: session?.maxTurnsPerSide,
+    maxTurnsTotal: session?.maxTurnsTotal ?? turnLimitValue,
   });
-  const rosterRows = buildTwoPersonRosterRows(
-    agents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      stance: agent.stance,
-      model: agent.model,
-      hasApiKey: agent.apiKey.trim().length > 0,
-    }))
-  );
-
-  const handleAddAgent = (stance: Stance) => {
-    setEditingAgent(createDefaultAgent(stance));
-    setIsAgentDialogOpen(true);
+  const turnLimitDisplayValue = session
+    ? turnsLeftLabel
+    : isEditingTurnLimit
+      ? turnLimitInput
+      : turnsLeftLabel;
+  const footerActionState = getTwoPersonFooterActionState({
+    hasSessionStarted: Boolean(session),
+    isRunning: Boolean(session?.isRunning),
+    canLaunch,
+    isBusy: isLoading || currentStreamingContent.length > 0,
+  });
+  const getStanceAccent = (agent?: AgentConfig | null) => {
+    switch (agent?.stance) {
+      case 'pro':
+        return '#53dbc9';
+      case 'con':
+        return '#ff7169';
+      case 'judge':
+        return '#ff9538';
+      default:
+        return '#ede7e1';
+    }
   };
 
   const handleEditAgent = (agent: AgentConfig) => {
@@ -141,31 +178,6 @@ export default function Home() {
     setEditingAgent(null);
     setIsAgentDialogOpen(false);
     toast.success(isUpdate ? '辩手已更新' : '辩手已添加');
-  };
-
-  const handleDeleteAgent = (id: string) => {
-    setAgents((prev) => prev.filter((agent) => agent.id !== id));
-    toast.success('辩手已删除');
-  };
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDragIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    if (dragIndex === null || dragIndex === dropIndex) return;
-    const copied = [...agents];
-    const [dragged] = copied.splice(dragIndex, 1);
-    copied.splice(dropIndex, 0, dragged);
-    setAgents(copied);
-    setDragIndex(null);
   };
 
   const handleExportMarkdown = () => {
@@ -202,291 +214,332 @@ export default function Home() {
     toast.success('辩论记录已导出');
   };
 
-  const handleLaunchDebate = () => {
+  const getMessageViewport = () =>
+    messageViewportRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+
+  const scrollMessagesToTop = () => {
+    const viewport = getMessageViewport();
+    if (viewport) {
+      viewport.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const scrollMessagesToBottom = () => {
+    const viewport = getMessageViewport();
+    if (viewport) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  const handleStageAction = () => {
+    if (footerActionState.mode === 'pause') {
+      pauseDebate();
+      return;
+    }
+
+    if (footerActionState.mode === 'resume') {
+      resumeDebate();
+      return;
+    }
+
     if (!canLaunch) {
       toast.error('请填写主题并完成正反方配置');
       return;
     }
+    const validation = validateTwoPersonTurnLimit(turnLimitInput);
+    if (!validation.isValid || validation.normalizedValue === undefined) {
+      const message = validation.errorMessage ?? '请输入有效回合数。';
+      setTurnLimitError(message);
+      toast.error(message);
+      return;
+    }
+    setTurnLimitError(null);
+    setTurnLimitInput(String(validation.normalizedValue));
+    setTurnLimitValue(validation.normalizedValue);
+    setIsEditingTurnLimit(false);
     const validAgents = agents.filter((agent) => agent.apiKey.trim().length > 0);
-    startDebate(topic, validAgents);
+    startDebate(topic, validAgents, validation.normalizedValue);
     toast.success('辩论开始！');
+  };
+
+  const validateTurnLimitInput = () => {
+    const validation = validateTwoPersonTurnLimit(turnLimitInput);
+    if (!validation.isValid || validation.normalizedValue === undefined) {
+      const message = validation.errorMessage ?? '请输入有效回合数。';
+      setTurnLimitError(message);
+      toast.error(message);
+      return false;
+    }
+
+    setTurnLimitError(null);
+    setTurnLimitValue(validation.normalizedValue);
+    setTurnLimitInput(String(validation.normalizedValue));
+    setIsEditingTurnLimit(false);
+    return true;
   };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--wolf-paper, #f4efea)' }}>
       <Header onSettingsClick={() => setIsSettingsOpen(true)} />
 
-      <div
-        className="py-2 px-4 flex items-center justify-center gap-4"
-        style={{ backgroundColor: '#ffde00', borderBottom: '2px solid #454341' }}
-      >
-        <span className="text-sm font-medium" style={{ color: '#3e3d3c' }}>
-          模式选择：
-        </span>
-        <div className="flex gap-1">
-          <Link href="/">
-            <Button
-              size="sm"
-              className="wolf-hard-shadow-button h-7 px-3 text-[0.62rem] font-mono uppercase tracking-wider"
-              style={{
-                backgroundColor: !pathname?.startsWith('/wolf') ? '#3e3d3c' : '#fbf7f2',
-                color: !pathname?.startsWith('/wolf') ? '#fbf7f2' : '#3e3d3c',
-                border: '2px solid #454341',
-                borderRadius: 0,
-              }}
-            >
-              <MessageSquare className="w-3 h-3 mr-1" />
-              AI辩论
-            </Button>
-          </Link>
-          <Link href="/wolf">
-            <Button
-              size="sm"
-              className="wolf-hard-shadow-button h-7 px-3 text-[0.62rem] font-mono uppercase tracking-wider"
-              style={{
-                backgroundColor: pathname?.startsWith('/wolf') ? '#3e3d3c' : '#fbf7f2',
-                color: pathname?.startsWith('/wolf') ? '#fbf7f2' : '#3e3d3c',
-                border: '2px solid #454341',
-                borderRadius: 0,
-              }}
-            >
-              狼人杀
-            </Button>
-          </Link>
-        </div>
-      </div>
-
       <main className="flex-1 p-4">
-        <div className="debate-stage-grid mx-auto h-full max-w-[1600px]">
-          <aside className="debate-side-rail debate-side-rail-left">
-            <div className="debate-rail-header">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span>2人辩手</span>
-              </div>
-              <Badge
-                variant="outline"
-                className="font-mono text-[0.56rem] uppercase tracking-wider"
-                style={{ border: '1px solid #454341', backgroundColor: '#fbf7f2', color: '#3e3d3c' }}
-              >
-                {rosterRows.length} 人
-              </Badge>
+        <div className="debate-stage-scene" data-running={session ? 'true' : 'false'}>
+          <svg className="debate-stage-cloud debate-stage-cloud-left" viewBox="0 0 180 100" aria-hidden="true">
+            <path d="M22 84c-12 0-20-8-20-20 0-11 8-20 19-20 4-20 23-34 45-34 17 0 31 7 40 20 5-2 10-3 15-3 19 0 34 15 34 34 0 14-10 23-26 23H22Z" />
+          </svg>
+          <svg className="debate-stage-cloud debate-stage-cloud-left-mid" viewBox="0 0 160 92" aria-hidden="true">
+            <path d="M20 78c-11 0-18-8-18-18 0-10 7-18 18-18 4-18 20-30 40-30 15 0 27 6 35 18 4-2 8-3 13-3 17 0 30 13 30 30 0 13-9 21-23 21H20Z" />
+          </svg>
+          <svg className="debate-stage-cloud debate-stage-cloud-right" viewBox="0 0 220 122" aria-hidden="true">
+            <path d="M28 104c-15 0-26-10-26-25 0-14 10-24 24-24 5-26 29-45 58-45 21 0 40 9 52 26 6-3 12-4 19-4 24 0 42 18 42 42 0 18-13 30-33 30H28Z" />
+          </svg>
+          {judgeAgent && (
+            <div className="debate-stage-float debate-stage-float-judge">
+              <AgentCard
+                agent={judgeAgent}
+                index={0}
+                variant="stage"
+                onEdit={handleEditAgent}
+              />
             </div>
-            <div className="debate-rail-body">
-              <ScrollArea className="h-full pr-2">
-                <div className="space-y-2">
-                  {agents.map((agent, index) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      index={index}
-                      variant="compact"
-                      onEdit={handleEditAgent}
-                      onDelete={handleDeleteAgent}
-                      onDragStart={handleDragStart}
-                      onDragOver={handleDragOver}
-                      onDrop={handleDrop}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
+          )}
+          {proAgent && (
+            <div className="debate-stage-float debate-stage-float-pro">
+              <AgentCard
+                agent={proAgent}
+                index={0}
+                variant="stage"
+                onEdit={handleEditAgent}
+              />
             </div>
-            <div className="debate-rail-footer">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAddAgent('pro')}
-                className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#53dbc9', color: '#3e3d3c' }}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                正方
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAddAgent('con')}
-                className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#ff7169', color: '#3e3d3c' }}
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                反方
-              </Button>
+          )}
+          {conAgent && (
+            <div className="debate-stage-float debate-stage-float-con">
+              <AgentCard
+                agent={conAgent}
+                index={0}
+                variant="stage"
+                onEdit={handleEditAgent}
+              />
             </div>
-          </aside>
-
+          )}
           <section className="debate-stage-shell">
             <header className="debate-stage-header">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold" style={{ color: '#3e3d3c' }}>
-                  中央辩论舞台
-                </span>
-                <span className="debate-stage-token">{session?.isRunning ? '进行中' : '准备中'}</span>
+              <div className="debate-stage-header-main">
+                <div className="debate-stage-title-group">
+                  <span className="debate-stage-title">
+                    {frameSpec.stageTitle}
+                  </span>
+                  <span className="debate-stage-status-text">{session?.isRunning ? '进行中' : '准备中'}</span>
+                </div>
+                <div className="wolf-debate-mode-toggle debate-stage-mode-toggle" data-placement={frameSpec.modeTogglePlacement}>
+                  <button
+                    onClick={() => setDebateMode('2person')}
+                    className="wolf-debate-mode-toggle-button debate-stage-mode-toggle-button"
+                    data-active={debateMode === '2person'}
+                  >
+                    2 人
+                  </button>
+                  <button
+                    type="button"
+                    disabled={frameSpec.eightPersonEntryState === 'disabled'}
+                    className="wolf-debate-mode-toggle-button debate-stage-mode-toggle-button"
+                    data-active={debateMode === '8person'}
+                    title="8人制将在同一骨架下后续适配"
+                  >
+                    8 人
+                  </button>
+                </div>
               </div>
-              <div className="wolf-debate-mode-toggle flex gap-0" data-placement={frameSpec.modeTogglePlacement}>
-                <button
-                  onClick={() => setDebateMode('2person')}
-                  className={`wolf-debate-mode-toggle-button px-3 py-1 ${
-                    debateMode === '2person' ? 'wolf-debate-mode-toggle-button-active' : ''
-                  }`}
-                  style={{ backgroundColor: debateMode === '2person' ? '#6fc2ff' : 'transparent', color: '#3e3d3c' }}
+              <div className="debate-stage-header-actions">
+                <div className="debate-stage-turns-control">
+                  <label htmlFor="debate-turn-limit" className="sr-only">
+                    辩论回合数
+                  </label>
+                  <input
+                    id="debate-turn-limit"
+                    ref={turnLimitInputRef}
+                    type="text"
+                    inputMode={session ? 'text' : 'numeric'}
+                    value={turnLimitDisplayValue}
+                    readOnly={Boolean(session) || !isEditingTurnLimit}
+                    onChange={(event) => {
+                      if (session || !isEditingTurnLimit) return;
+                      const nextValue = event.target.value.replace(/[^\d]/g, '');
+                      setTurnLimitInput(nextValue);
+                      if (turnLimitError) {
+                        setTurnLimitError(null);
+                      }
+                    }}
+                    onClick={() => {
+                      if (!session && !isEditingTurnLimit) {
+                        setTurnLimitInput(String(turnLimitValue));
+                        setIsEditingTurnLimit(true);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (!session && isEditingTurnLimit) {
+                        validateTurnLimitInput();
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (!session && isEditingTurnLimit && event.key === 'Enter') {
+                        event.preventDefault();
+                        validateTurnLimitInput();
+                      }
+                      if (!session && isEditingTurnLimit && event.key === 'Escape') {
+                        event.preventDefault();
+                        setTurnLimitError(null);
+                        setTurnLimitInput(String(turnLimitValue));
+                        setIsEditingTurnLimit(false);
+                      }
+                    }}
+                    className="debate-stage-turns-input"
+                    aria-invalid={turnLimitError ? 'true' : 'false'}
+                    aria-describedby={turnLimitError ? 'debate-turn-limit-error' : undefined}
+                    aria-label="辩论回合数"
+                  />
+                  {turnLimitError && !session && (
+                    <span id="debate-turn-limit-error" className="debate-stage-turns-error">
+                      {turnLimitError}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  onClick={session ? resetDebate : () => {}}
+                  disabled={!session}
+                  className="debate-stage-reset-button"
                 >
-                  2 人
-                </button>
-                <button
-                  onClick={() => {
-                    setDebateMode('8person');
-                    toast.info('8人模式将在下一次重构中接入同一舞台框架');
-                  }}
-                  className={`wolf-debate-mode-toggle-button px-3 py-1 ${
-                    debateMode === '8person' ? 'wolf-debate-mode-toggle-button-active' : ''
-                  }`}
-                  style={{ backgroundColor: debateMode === '8person' ? '#6fc2ff' : 'transparent', color: '#3e3d3c' }}
-                >
-                  8 人
-                </button>
+                  重置
+                </Button>
               </div>
             </header>
 
             <div className="debate-stage-body">
-              {debateMode === '8person' && (
-                <div className="debate-idle-empty">
-                  <p>8人模式暂未迁移到新舞台。请先使用 2 人模式。</p>
-                </div>
-              )}
-
-              {debateMode === '2person' && !session && idleSpec.showMatchupPreview && (
+              {!session && idleSpec.showMatchupPreview && (
                 <div className="debate-idle-preview">
-                  <p className="debate-idle-guidance">先完成正反方配置，再从下方输入主题并发起辩论。</p>
-                  <div className="debate-matchup">
-                    <div className="debate-matchup-row">
-                      <span className="debate-team-pill debate-team-pill-pro">正方</span>
-                      <span>{rosterRows.find((row) => row.sideLabel === '正方')?.name ?? '待配置'}</span>
-                    </div>
-                    <div className="debate-matchup-row">
-                      <span className="debate-team-pill debate-team-pill-con">反方</span>
-                      <span>{rosterRows.find((row) => row.sideLabel === '反方')?.name ?? '待配置'}</span>
-                    </div>
-                  </div>
+                  <p className="debate-idle-guidance">在下方输入主题并发起辩论。</p>
                 </div>
               )}
 
-              {debateMode === '2person' && session && (
-                <ScrollArea className="debate-message-viewport" ref={messageViewportRef}>
-                  <div className="space-y-3 p-4" id="debate-messages">
-                    {session.messages.map((message) => (
-                      <MessageBubble key={message.id} message={message} onExport={handleExportMarkdown} />
-                    ))}
-                    {currentStreamingContent && (
-                      <MessageBubble
-                        message={{
-                          id: 'streaming',
-                          agentId: currentSpeaker?.id ?? 'streaming',
-                          agentName: currentSpeaker?.name ?? '匿名辩手',
-                          stance: currentSpeaker?.stance ?? 'pro',
-                          content: currentStreamingContent,
-                          timestamp: Date.now(),
-                        }}
-                        isStreaming={true}
-                      />
-                    )}
+              {session && (
+                <div className="debate-message-shell">
+                  <ScrollArea className="debate-message-viewport" ref={messageViewportRef}>
+                    <div className="space-y-3 p-4" id="debate-messages">
+                      {session.messages.map((message) => (
+                        <MessageBubble key={message.id} message={message} onExport={handleExportMarkdown} />
+                      ))}
+                      {currentStreamingContent && (
+                        <MessageBubble
+                          message={{
+                            id: 'streaming',
+                            agentId: currentSpeaker?.id ?? 'streaming',
+                            agentName: currentSpeaker?.name ?? '匿名辩手',
+                            stance: currentSpeaker?.stance ?? 'pro',
+                            content: currentStreamingContent,
+                            timestamp: session.messages[session.messages.length - 1]?.timestamp ?? 0,
+                          }}
+                          isStreaming={true}
+                        />
+                      )}
+                    </div>
+                  </ScrollArea>
+                  <div className="debate-scroll-controls" aria-label="消息滚动控制">
+                    <button
+                      type="button"
+                      className="debate-scroll-button"
+                      onClick={scrollMessagesToTop}
+                      aria-label="滚动到顶部"
+                      title="到顶"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="debate-scroll-button"
+                      onClick={scrollMessagesToBottom}
+                      aria-label="滚动到底部"
+                      title="到底"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
                   </div>
-                </ScrollArea>
+                </div>
               )}
             </div>
 
             <footer className="debate-stage-footer" data-placement={frameSpec.composerPlacement}>
-              <input
-                type="text"
-                value={topic}
-                readOnly={composerState.mode === 'readonly'}
-                onChange={(event) => setTopic(event.target.value)}
-                placeholder="例如：AI 是否会取代人类？"
-                className="wolf-debate-topic-input debate-stage-composer-input"
-              />
-              <Button
-                size="icon"
-                onClick={handleLaunchDebate}
-                disabled={Boolean(session) || !canLaunch}
-                className="wolf-hard-shadow-button debate-stage-send-button"
-                style={{ border: '2px solid #454341', borderRadius: 0 }}
-                aria-label="开始辩论"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+              <div className="debate-stage-composer-row">
+                <label htmlFor="debate-topic-input" className="sr-only">
+                  辩论主题
+                </label>
+                <input
+                  id="debate-topic-input"
+                  type="text"
+                  value={topic}
+                  readOnly={composerState.mode === 'readonly'}
+                  onChange={(event) => setTopic(event.target.value)}
+                  placeholder="例如：AI 是否会取代人类？"
+                  className="wolf-debate-topic-input debate-stage-composer-input"
+                  aria-label="辩论主题"
+                />
+                <Button
+                  size="icon"
+                  onClick={handleStageAction}
+                  disabled={footerActionState.disabled}
+                  className="wolf-hard-shadow-button debate-stage-send-button"
+                  data-tone={footerActionState.tone}
+                  style={{ border: '2px solid #454341', borderRadius: 0 }}
+                  aria-label={
+                    footerActionState.mode === 'pause'
+                      ? '暂停辩论'
+                      : footerActionState.mode === 'resume'
+                        ? '继续辩论'
+                        : '开始辩论'
+                  }
+                  title={
+                    footerActionState.mode === 'pause'
+                      ? '暂停辩论'
+                      : footerActionState.mode === 'resume'
+                        ? '继续辩论'
+                        : '开始辩论'
+                  }
+                >
+                  {footerActionState.mode === 'pause' ? (
+                    <Pause className="w-4 h-4" />
+                  ) : footerActionState.mode === 'resume' ? (
+                    <Play className="w-4 h-4" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
             </footer>
           </section>
-
-          <aside className="debate-side-rail debate-side-rail-right">
-            <div className="debate-rail-header">
-              <span>控制栏</span>
-            </div>
-            <div className="debate-rail-body">
-              <div className="debate-rail-stat">{railState.roundLabel}</div>
-              <div className="debate-rail-stat">{railState.speakerLabel}</div>
-              <div className="debate-rail-stat">{railState.statusLabel}</div>
-              {frameSpec.showVerboseRightRail ? (
-                <div className="debate-rail-stat">详细状态</div>
-              ) : null}
-            </div>
-            <div className="debate-rail-footer">
-              {session?.isRunning ? (
-                <Button
-                  size="sm"
-                  onClick={pauseDebate}
-                  disabled={isLoading || currentStreamingContent.length > 0}
-                  className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                  style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#fbf7f2', color: '#3e3d3c' }}
-                >
-                  暂停
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  onClick={resumeDebate}
-                  disabled={!session || isLoading}
-                  className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                  style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#6fc2ff', color: '#3e3d3c' }}
-                >
-                  继续
-                </Button>
-              )}
-              <Button
-                size="sm"
-                onClick={session ? resetDebate : () => {}}
-                disabled={!session}
-                className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#ede7e1', color: '#3e3d3c' }}
-              >
-                重置
-              </Button>
-              <Button
-                size="sm"
-                onClick={stopGeneration}
-                disabled={currentStreamingContent.length === 0}
-                className="wolf-hard-shadow-button h-8 text-[0.58rem] font-mono uppercase"
-                style={{ border: '2px solid #454341', borderRadius: 0, backgroundColor: '#ff7169', color: '#3e3d3c' }}
-              >
-                停止生成
-              </Button>
-            </div>
-          </aside>
         </div>
       </main>
 
       <Dialog open={isAgentDialogOpen} onOpenChange={setIsAgentDialogOpen}>
         <DialogContent
-          className="max-w-lg"
-          style={{ backgroundColor: '#fbf7f2', border: '2px solid #454341', borderRadius: 0 }}
+          className="max-w-lg overflow-hidden p-0"
+          style={{ backgroundColor: '#fbf7f2', border: '2px solid #454341', borderRadius: 0, maxHeight: 'calc(100vh - 48px)' }}
         >
-          <DialogHeader style={{ borderBottom: '2px solid #454341', padding: '0.75rem 1rem' }}>
+          <DialogHeader
+            style={{
+              borderBottom: '2px solid #454341',
+              padding: '0.75rem 1rem',
+              backgroundColor: getStanceAccent(editingAgent),
+            }}
+          >
             <DialogTitle className="font-mono uppercase text-sm tracking-wider" style={{ color: '#3e3d3c' }}>
-              {editingAgent?.name ? '编辑辩手' : '添加辩手'}
+              编辑辩手
             </DialogTitle>
           </DialogHeader>
           {editingAgent && (
             <AgentForm
               agent={editingAgent}
+              showStance={false}
               onSave={handleSaveAgent}
               onCancel={() => {
                 setEditingAgent(null);

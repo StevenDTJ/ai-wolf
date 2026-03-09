@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTwoPersonRosterRows,
   getTwoPersonComposerState,
+  getTwoPersonFooterActionState,
   getTwoPersonFrameSpec,
   getTwoPersonIdleSpec,
   getTwoPersonRailState,
+  getTwoPersonTurnsLeftLabel,
   isTwoPersonLaunchEnabled,
+  validateTwoPersonTurnLimit,
 } from './debate-stage-layout';
 
 describe('debate stage layout helpers', () => {
@@ -21,6 +24,53 @@ describe('debate stage layout helpers', () => {
 
   it('returns readonly composer after session starts', () => {
     expect(getTwoPersonComposerState(true).mode).toBe('readonly');
+  });
+
+  it('defines footer action states for start pause and resume', () => {
+    expect(
+      getTwoPersonFooterActionState({
+        hasSessionStarted: false,
+        isRunning: false,
+        canLaunch: true,
+        isBusy: false,
+      })
+    ).toEqual({ mode: 'start', disabled: false, tone: 'blue' });
+
+    expect(
+      getTwoPersonFooterActionState({
+        hasSessionStarted: true,
+        isRunning: true,
+        canLaunch: true,
+        isBusy: false,
+      })
+    ).toEqual({ mode: 'pause', disabled: false, tone: 'red' });
+
+    expect(
+      getTwoPersonFooterActionState({
+        hasSessionStarted: true,
+        isRunning: true,
+        canLaunch: true,
+        isBusy: true,
+      })
+    ).toEqual({ mode: 'pause', disabled: false, tone: 'red' });
+
+    expect(
+      getTwoPersonFooterActionState({
+        hasSessionStarted: true,
+        isRunning: false,
+        canLaunch: true,
+        isBusy: false,
+      })
+    ).toEqual({ mode: 'resume', disabled: false, tone: 'blue' });
+
+    expect(
+      getTwoPersonFooterActionState({
+        hasSessionStarted: true,
+        isRunning: false,
+        canLaunch: true,
+        isBusy: true,
+      })
+    ).toEqual({ mode: 'resume', disabled: false, tone: 'blue' });
   });
 
   it('builds minimal right rail summary', () => {
@@ -51,6 +101,12 @@ describe('debate stage layout helpers', () => {
     expect(frame.modeTogglePlacement).toBe('stage-header');
     expect(frame.composerPlacement).toBe('stage-footer');
     expect(frame.showVerboseRightRail).toBe(false);
+    expect(frame.showGlobalModeStrip).toBe(false);
+    expect(frame.eightPersonEntryState).toBe('disabled');
+    expect(frame.stageTitle).toBe('辩论现场');
+    expect(frame.resetPlacement).toBe('stage-header');
+    expect(frame.turnCounterTone).toBe('highlight');
+    expect(frame.shellStyle).toBe('dark-topbar-floating');
   });
 
   it('defines lightweight idle stage and icon composer action', () => {
@@ -59,5 +115,47 @@ describe('debate stage layout helpers', () => {
     expect(idle.showMatchupPreview).toBe(true);
     expect(idle.showLegacyArenaBlock).toBe(false);
     expect(idle.launchActionStyle).toBe('icon-only');
+    expect(idle.matchupPlacement).toBe('lower-stage');
+    expect(idle.largeSideRailCtas).toBe(false);
+    expect(idle.sendButtonTone).toBe('subtle');
+  });
+
+  it('keeps the 2-person rail on the minimum control set', () => {
+    const rail = getTwoPersonRailState({
+      currentTurn: 1,
+      currentSpeakerName: '待开始',
+      isRunning: false,
+    });
+
+    expect(rail.controlSet).toEqual(['pause-resume']);
+    expect(rail.showStopAction).toBe(false);
+  });
+
+  it('computes remaining turns for the stage header badge', () => {
+    expect(getTwoPersonTurnsLeftLabel({})).toBe('剩余 20 回合');
+    expect(getTwoPersonTurnsLeftLabel({ proTurns: 3, conTurns: 2, maxTurnsTotal: 20 })).toBe('剩余 15 回合');
+    expect(getTwoPersonTurnsLeftLabel({ proTurns: 10, conTurns: 10, maxTurnsTotal: 20 })).toBe('剩余 0 回合');
+  });
+
+  it('validates editable turn-limit input before debate start', () => {
+    expect(validateTwoPersonTurnLimit('2')).toEqual({
+      isValid: true,
+      normalizedValue: 2,
+    });
+
+    expect(validateTwoPersonTurnLimit('20')).toEqual({
+      isValid: true,
+      normalizedValue: 20,
+    });
+
+    expect(validateTwoPersonTurnLimit('1')).toEqual({
+      isValid: false,
+      errorMessage: '回合数最低不能小于 2。',
+    });
+
+    expect(validateTwoPersonTurnLimit('21')).toEqual({
+      isValid: false,
+      errorMessage: '回合数最高不能超过 20。',
+    });
   });
 });

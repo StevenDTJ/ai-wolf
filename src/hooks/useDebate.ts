@@ -21,6 +21,7 @@ import {
   AudienceQuestion,
   isFreeDebateStage,
 } from '@/types';
+import { getStreamingPlaybackPlan } from '@/lib/stream-playback';
 
 // Local storage keys
 const AGENTS_STORAGE_KEY = 'ai-debate-agents';
@@ -53,16 +54,55 @@ function getApiUrl(baseUrl: string, endpoint: string): string {
   return `${finalBaseUrl}${endpoint}`;
 }
 
+function flattenContentParts(content: unknown): string | undefined {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return undefined;
+  }
+
+  const text = content
+    .map((item) => {
+      if (typeof item === 'string') {
+        return item;
+      }
+
+      if (item && typeof item === 'object') {
+        const part = item as { text?: unknown; content?: unknown };
+        if (typeof part.text === 'string') {
+          return part.text;
+        }
+        if (typeof part.content === 'string') {
+          return part.content;
+        }
+      }
+
+      return '';
+    })
+    .join('');
+
+  return text || undefined;
+}
+
 // 从不同格式的响应中提取内容
-function extractContentFromResponse(parsed: Record<string, unknown>): string | undefined {
+export function extractContentFromResponse(parsed: Record<string, unknown>): string | undefined {
   // 标准 OpenAI 格式: choices[0].delta.content
-  const choices = parsed.choices as Array<{ delta?: { content?: string }; message?: { content?: string } }> | undefined;
-  const deltaContent = choices?.[0]?.delta?.content;
+  const choices = parsed.choices as Array<{
+    delta?: { content?: string | unknown[]; reasoning_content?: string };
+    message?: { content?: string | unknown[]; reasoning_content?: string };
+  }> | undefined;
+
+  const deltaContent = flattenContentParts(choices?.[0]?.delta?.content);
   if (deltaContent) return deltaContent;
 
   // 非流式响应格式: choices[0].message.content
-  const messageContent = choices?.[0]?.message?.content;
+  const messageContent = flattenContentParts(choices?.[0]?.message?.content);
   if (messageContent) return messageContent;
+
+  const reasoningContent = choices?.[0]?.message?.reasoning_content || choices?.[0]?.delta?.reasoning_content;
+  if (reasoningContent) return reasoningContent;
 
   // Gemini 格式: candidates[0].content.parts[0].text
   const candidates = parsed.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined;
@@ -221,6 +261,13 @@ export function useDebate() {
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRunningRef = useRef(false);
+  const playbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPlaybackRef = useRef<{
+    fullContent: string;
+    displayedLength: number;
+    agent: AgentConfig;
+    completed: boolean;
+  } | null>(null);
 
   // 8-Person Debate State
   const [currentStageId, setCurrentStageId] = useState<number>(1);
@@ -255,6 +302,13 @@ export function useDebate() {
     questionSource: 'ai',
     waitingForAnswer: false,
   });
+
+  const clearPlaybackTimer = useCallback(() => {
+    if (playbackTimerRef.current) {
+      clearTimeout(playbackTimerRef.current);
+      playbackTimerRef.current = null;
+    }
+  }, []);
 
   // 自由辩论环节状态
   const [freeDebateState, setFreeDebateState] = useState<{
@@ -356,7 +410,7 @@ export function useDebate() {
   }, [session]);
 
   // Start debate
-  const startDebate = useCallback((topic: string, agents: AgentConfig[]) => {
+  const startDebate = useCallback((topic: string, agents: AgentConfig[], maxTurnsTotal = 20) => {
     if (agents.length === 0) {
       setError('请至少添加一个辩论智能体');
       return;
@@ -381,28 +435,15 @@ export function useDebate() {
       proTurns: 0,
       conTurns: 0,
       maxTurnsPerSide: 10, // 2人制辩论：每方发言10轮
+      maxTurnsTotal,
     });
     setError(null);
   }, []);
 
-  // Pause debate
-  const pauseDebate = useCallback(() => {
-    isRunningRef.current = false;
-    setSession((prev) =>
-      prev ? { ...prev, isRunning: false } : null
-    );
-  }, []);
-
-  // Resume debate
-  const resumeDebate = useCallback(() => {
-    isRunningRef.current = true;
-    setSession((prev) =>
-      prev ? { ...prev, isRunning: true } : null
-    );
-  }, []);
-
   // Reset debate
   const resetDebate = useCallback(() => {
+    clearPlaybackTimer();
+    pendingPlaybackRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -441,10 +482,12 @@ export function useDebate() {
       waitingForAnswer: false,
       questionSource: 'ai',
     });
-  }, []);
+  }, [clearPlaybackTimer]);
 
   // Stop debate (abort current generation)
   const stopDebate = useCallback(() => {
+    clearPlaybackTimer();
+    pendingPlaybackRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -455,7 +498,7 @@ export function useDebate() {
     setSession((prev) =>
       prev ? { ...prev, isRunning: false } : null
     );
-  }, []);
+  }, [clearPlaybackTimer]);
 
   // Add message to session
   const addMessage = useCallback((message: DebateMessage) => {
@@ -463,6 +506,7 @@ export function useDebate() {
       if (!prev) return null;
 
       const maxTurnsPerSide = prev.maxTurnsPerSide ?? 10;
+      const maxTurnsTotal = prev.maxTurnsTotal ?? maxTurnsPerSide * 2;
       const currentProTurns = prev.proTurns ?? 0;
       const currentConTurns = prev.conTurns ?? 0;
 
@@ -495,12 +539,11 @@ export function useDebate() {
 
       // 检查辩论是否应该继续
       // 规则：正反方各发言10轮后，裁判发言
-      const proDone = nextProTurns >= maxTurnsPerSide;
-      const conDone = nextConTurns >= maxTurnsPerSide;
+      const totalDone = nextProTurns + nextConTurns >= maxTurnsTotal;
 
       // 寻找下一个发言者
       // 如果双方都完成了10轮，下一个应该是裁判
-      if (proDone && conDone) {
+      if (totalDone) {
         // 查找裁判的索引（需要同时满足：有裁判、有API Key）
         const judgeIndex = prev.agents.findIndex(a => a.stance === 'judge' && a.apiKey.trim());
         if (judgeIndex !== -1) {
@@ -516,29 +559,14 @@ export function useDebate() {
           };
         }
       } else {
-        // 轮流发言：先正方后反方
-        // 找出下一个应该发言的一方
-        const proHasTurnsLeft = nextProTurns < maxTurnsPerSide;
-        const conHasTurnsLeft = nextConTurns < maxTurnsPerSide;
-
-        // 当前是正方发言，下一个应该是反方
-        if (currentStance === 'pro' && conHasTurnsLeft) {
+        // 轮流发言：先正方后反方，总回合数由 maxTurnsTotal 控制
+        if (currentStance === 'pro') {
           const conIndex = prev.agents.findIndex(a => a.stance === 'con');
           if (conIndex !== -1) nextAgentIndex = conIndex;
         }
-        // 当前是反方发言，下一个应该是正方
-        else if (currentStance === 'con' && proHasTurnsLeft) {
+        else if (currentStance === 'con') {
           const proIndex = prev.agents.findIndex(a => a.stance === 'pro');
           if (proIndex !== -1) nextAgentIndex = proIndex;
-        }
-        // 如果一方已完成10轮但另一方还没有，继续另一方
-        else if (proHasTurnsLeft && !conHasTurnsLeft) {
-          const proIndex = prev.agents.findIndex(a => a.stance === 'pro');
-          if (proIndex !== -1) nextAgentIndex = proIndex;
-        }
-        else if (conHasTurnsLeft && !proHasTurnsLeft) {
-          const conIndex = prev.agents.findIndex(a => a.stance === 'con');
-          if (conIndex !== -1) nextAgentIndex = conIndex;
         }
       }
 
@@ -553,12 +581,77 @@ export function useDebate() {
     });
   }, []);
 
+  const playPendingStreamingContent = useCallback(() => {
+    clearPlaybackTimer();
+
+    const pending = pendingPlaybackRef.current;
+    if (!pending || !isRunningRef.current) {
+      return;
+    }
+
+    const remaining = pending.fullContent.length - pending.displayedLength;
+    if (remaining <= 0) {
+      if (!pending.completed) {
+        return;
+      }
+
+      const completedContent = pending.fullContent;
+      const completedAgent = pending.agent;
+
+      pendingPlaybackRef.current = null;
+      setCurrentStreamingContent('');
+      addMessage({
+        id: uuidv4(),
+        agentId: completedAgent.id,
+        agentName: completedAgent.name || '匿名辩手',
+        stance: completedAgent.stance,
+        content: completedContent,
+        timestamp: Date.now(),
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const plan = getStreamingPlaybackPlan(remaining);
+    pending.displayedLength = Math.min(pending.fullContent.length, pending.displayedLength + plan.chunkSize);
+    setCurrentStreamingContent(pending.fullContent.slice(0, pending.displayedLength));
+
+    playbackTimerRef.current = setTimeout(() => {
+      playPendingStreamingContent();
+    }, plan.delayMs);
+  }, [addMessage, clearPlaybackTimer]);
+
+  // Pause debate
+  const pauseDebate = useCallback(() => {
+    clearPlaybackTimer();
+    if (abortControllerRef.current && !pendingPlaybackRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setIsLoading(false);
+    }
+    isRunningRef.current = false;
+    setSession((prev) =>
+      prev ? { ...prev, isRunning: false } : null
+    );
+  }, [clearPlaybackTimer]);
+
+  // Resume debate
+  const resumeDebate = useCallback(() => {
+    isRunningRef.current = true;
+    setSession((prev) =>
+      prev ? { ...prev, isRunning: true } : null
+    );
+    if (pendingPlaybackRef.current) {
+      playPendingStreamingContent();
+    }
+  }, [playPendingStreamingContent]);
+
   // Update streaming content
   const updateStreamingContent = useCallback((content: string) => {
     setCurrentStreamingContent(content);
   }, []);
 
-  // Call AI API with streaming
+  // Call AI API and stream content for 2-person playback
   const callAI = useCallback(async (
     agent: AgentConfig,
     topic: string,
@@ -610,7 +703,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
+          Accept: 'text/event-stream',
           Authorization: `Bearer ${agent.apiKey}`,
         },
         body: JSON.stringify(requestBody),
@@ -638,102 +731,97 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
       }
 
       if (!response.body) {
-        console.log('[API Error] No response body');
         throw new Error('无响应内容');
       }
 
-      console.log('[API Response] Has body, creating reader...');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let content = '';
-
-      console.log('[API Response] Starting to read stream...');
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // 检查是否被中止
         if (controller.signal.aborted) {
           break;
         }
 
         const chunk = decoder.decode(value, { stream: true });
-        console.log('[API Raw Chunk]:', chunk.substring(0, 500));
         const lines = chunk.split('\n').filter((line) => line.trim() !== '');
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('[API] Received [DONE]');
+          if (!line.startsWith('data: ')) {
+            continue;
+          }
+
+          const data = line.slice(6);
+          if (data === '[DONE]') {
+            continue;
+          }
+
+          try {
+            const parsed = JSON.parse(data);
+            const delta = extractContentFromResponse(parsed);
+            if (!delta) {
               continue;
             }
 
-            try {
-              const parsed = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
-              const delta = extractContentFromResponse(parsed);
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              if (delta) {
-                content += delta;
-                onChunk?.(content, false);
-              }
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+            content += delta;
+            onChunk?.(content, false);
+          } catch {
+            continue;
           }
         }
       }
 
+      if (!content) {
+        throw new Error('无响应内容');
+      }
+
       onChunk?.(content, true);
+
       return content;
     } finally {
       abortControllerRef.current = null;
     }
   }, []);
 
-  // Generate next turn with streaming
+  // Generate next turn with simulated streaming playback
   const generateNextTurn = useCallback(async () => {
-    if (!session || !isRunningRef.current) return;
+    if (!session || !isRunningRef.current || pendingPlaybackRef.current) return;
 
     const agent = session.agents[session.currentAgentIndex];
     setIsLoading(true);
     setError(null);
     setCurrentStreamingContent('');
+    pendingPlaybackRef.current = {
+      fullContent: '',
+      displayedLength: 0,
+      agent,
+      completed: false,
+    };
 
     try {
-      const content = await callAI(
-        agent,
-        session.topic,
-        session.messages,
-        (chunk, done) => {
-          if (isRunningRef.current || done) {
-            setCurrentStreamingContent(chunk);
-          }
+      await callAI(agent, session.topic, session.messages, (content, done) => {
+        const pending = pendingPlaybackRef.current;
+        if (!pending) {
+          return;
         }
-      );
 
-      // 检查是否仍然在运行
+        pending.fullContent = content;
+        pending.completed = done;
+
+        if (isRunningRef.current) {
+          playPendingStreamingContent();
+        }
+      });
+
       if (!isRunningRef.current) {
-        setCurrentStreamingContent('');
         setIsLoading(false);
         return;
       }
-
-      // 只有在非中止状态下才添加消息
-      const message: DebateMessage = {
-        id: uuidv4(),
-        agentId: agent.id,
-        agentName: agent.name || '匿名辩手',
-        stance: agent.stance,
-        content,
-        timestamp: Date.now(),
-      };
-
-      addMessage(message);
-      setCurrentStreamingContent('');
     } catch (err) {
+      pendingPlaybackRef.current = null;
       if (err instanceof Error) {
         if (err.name === 'AbortError') {
           // 用户中止，不报错
@@ -743,19 +831,23 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
         }
       }
     } finally {
-      setIsLoading(false);
+      if (!pendingPlaybackRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [session, callAI, addMessage]);
+  }, [session, callAI, playPendingStreamingContent]);
 
   // Stop generation (abort current API call)
   const stopGeneration = useCallback(() => {
+    clearPlaybackTimer();
+    pendingPlaybackRef.current = null;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
     setCurrentStreamingContent('');
     setIsLoading(false);
-  }, []);
+  }, [clearPlaybackTimer]);
 
   // ============================================
   // 8-Person Debate Functions

@@ -1,4 +1,4 @@
-import { DebateMessage, STANCE_INFO, CrossExamGroup, SpeechType } from '@/types';
+import { DebateMessage, SpeechType } from '@/types';
 import { Copy, Check, Download, Sword, HelpCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from './ui/button';
@@ -9,7 +9,6 @@ interface MessageBubbleProps {
   isStreaming?: boolean;
   onExport?: (content: string) => void;
   isCrossExamStage?: boolean;
-  crossExamGroup?: CrossExamGroup | null;
   isAudienceQAStage?: boolean;
 }
 
@@ -28,11 +27,9 @@ export function MessageBubble({
   isStreaming = false,
   onExport,
   isCrossExamStage = false,
-  crossExamGroup,
   isAudienceQAStage = false,
 }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
-  const stanceInfo = STANCE_INFO[message.stance];
   const isCrossExam = isCrossExamStage || isCrossExamMessage(message.speechType);
   const isAudienceQA = isAudienceQAStage || isAudienceQuestionMessage(message.speechType);
 
@@ -54,13 +51,13 @@ export function MessageBubble({
     });
   };
 
-  // Wolf-style stance colors
+  // Wolf-style stance colors - role colors only for avatar/badge, shell always neutral
   const getStanceStyles = () => {
     switch (message.stance) {
       case 'pro':
         return {
-          avatarBg: '#6fc2ff',
-          badgeBg: '#6fc2ff',
+          avatarBg: '#53dbc9',
+          badgeBg: '#53dbc9',
           badgeText: '#3e3d3c',
           textColor: '#3e3d3c',
         };
@@ -73,8 +70,8 @@ export function MessageBubble({
         };
       case 'judge':
         return {
-          avatarBg: '#ffde00',
-          badgeBg: '#ffde00',
+          avatarBg: '#ff9538',
+          badgeBg: '#ff9538',
           badgeText: '#3e3d3c',
           textColor: '#3e3d3c',
         };
@@ -86,6 +83,13 @@ export function MessageBubble({
           textColor: '#3e3d3c',
         };
     }
+  };
+
+  // Shell always uses neutral warm background (wolf-game standard)
+  const shellStyle = {
+    backgroundColor: '#fbf7f2', // neutral warm, not role-colored
+    border: '2px solid #454341',
+    color: '#3e3d3c',
   };
 
   const styles = getStanceStyles();
@@ -107,7 +111,7 @@ export function MessageBubble({
     >
       {/* 攻辩标识 - Wolf Style */}
       {isCrossExam && (
-        <div className="flex items-center gap-1 text-[0.62rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#ff9538' }}>
+        <div className="flex items-center gap-1 text-[0.7rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#ff9538' }}>
           <Sword className="w-3 h-3" />
           <span>攻辩环节</span>
         </div>
@@ -115,7 +119,7 @@ export function MessageBubble({
 
       {/* 观众提问标识 - Wolf Style */}
       {isAudienceQA && (
-        <div className="flex items-center gap-1 text-[0.62rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#5f5b57' }}>
+        <div className="flex items-center gap-1 text-[0.7rem] font-mono uppercase tracking-wider mb-2" style={{ color: '#5f5b57' }}>
           <HelpCircle className="w-3 h-3" />
           <span>观众提问</span>
         </div>
@@ -156,7 +160,7 @@ export function MessageBubble({
               {message.agentName}
             </span>
             <span
-              className="text-[0.54rem] font-mono uppercase tracking-wider px-1.5 py-0.5"
+              className="text-[0.65rem] font-mono uppercase tracking-wider px-1.5 py-0.5"
               style={{
                 backgroundColor: styles.badgeBg,
                 color: styles.badgeText,
@@ -167,7 +171,7 @@ export function MessageBubble({
             </span>
             {isCrossExam && (
               <span
-                className="text-[0.54rem] font-mono uppercase px-1.5 py-0.5"
+                className="text-[0.65rem] font-mono uppercase px-1.5 py-0.5"
                 style={{
                   backgroundColor: '#ff9538',
                   color: '#3e3d3c',
@@ -177,12 +181,12 @@ export function MessageBubble({
                 攻辩
               </span>
             )}
-            <span className="text-[0.54rem] font-mono" style={{ color: '#5f5b57' }}>
+            <span className="text-[0.65rem] font-mono" style={{ color: '#5f5b57' }}>
               {formatTime(message.timestamp)}
             </span>
             {isStreaming && (
               <span
-                className="text-[0.54rem] font-mono flex items-center gap-1"
+                className="text-[0.65rem] font-mono flex items-center gap-1"
                 style={{ color: styles.avatarBg }}
               >
                 <span
@@ -194,14 +198,10 @@ export function MessageBubble({
             )}
           </div>
 
-          {/* Message body with Markdown - Wolf Style */}
+          {/* Message body with Markdown - Wolf Style (neutral shell) */}
           <div
             className="p-3 text-sm leading-relaxed overflow-hidden"
-            style={{
-              backgroundColor: '#f4efea',
-              border: '2px solid #454341',
-              color: '#3e3d3c',
-            }}
+            style={shellStyle}
           >
             <div className="prose prose-sm max-w-none">
               <ReactMarkdown
@@ -252,13 +252,13 @@ export function MessageBubble({
             )}
           </div>
 
-          {/* Actions - Wolf Style */}
-          <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Actions - Wolf Style (always visible for touch/mobile) */}
+          <div className="flex items-center gap-1 mt-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              className="h-6 text-[0.54rem] font-mono uppercase"
+              className="h-8 text-[0.65rem] font-mono uppercase"
               style={{ color: '#5f5b57' }}
             >
               {copied ? (
@@ -273,7 +273,7 @@ export function MessageBubble({
                 variant="ghost"
                 size="sm"
                 onClick={handleExport}
-                className="h-6 text-[0.54rem] font-mono uppercase"
+                className="h-8 text-[0.65rem] font-mono uppercase"
                 style={{ color: '#5f5b57' }}
               >
                 <Download className="w-3 h-3 mr-1" />

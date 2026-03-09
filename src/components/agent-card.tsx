@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 interface AgentCardProps {
   agent: AgentConfig;
   index: number;
+  variant?: 'default' | 'compact';
   onEdit: (agent: AgentConfig) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, index: number) => void;
@@ -15,6 +16,7 @@ interface AgentCardProps {
 export function AgentCard({
   agent,
   index,
+  variant = 'default',
   onEdit,
   onDelete,
   onDragStart,
@@ -51,6 +53,59 @@ export function AgentCard({
   };
 
   const stanceStyle = getStanceBadgeStyle();
+
+  if (variant === 'compact') {
+    return (
+      <div
+        className="wolf-debate-agent-card relative group cursor-move p-2.5"
+        draggable
+        onDragStart={(e) => onDragStart(e, index)}
+        onDragOver={onDragOver}
+        onDrop={(e) => onDrop(e, index)}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <GripVertical className="w-3.5 h-3.5 shrink-0" style={{ color: '#5f5b57' }} />
+              <span className="text-xs font-medium truncate" style={{ color: '#3e3d3c' }}>
+                {agent.name || '未命名辩手'}
+              </span>
+              <span
+                className="shrink-0 font-mono text-[0.5rem] uppercase tracking-wider px-1.5 py-0.5"
+                style={{ backgroundColor: stanceStyle.bg, color: stanceStyle.text, border: '1px solid #454341' }}
+              >
+                {stanceInfo.label}
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 text-[0.54rem] font-mono" style={{ color: '#5f5b57' }}>
+              <span className="truncate max-w-[120px]" title={agent.model}>
+                {agent.model}
+              </span>
+              <span style={{ color: hasApiKey ? '#53dbc9' : '#ff9538' }}>{hasApiKey ? '已配置' : '未配置'}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              onClick={() => onEdit(agent)}
+              className="wolf-hard-shadow-button h-6 px-1.5"
+              style={{ backgroundColor: '#fbf7f2', color: '#3e3d3c', border: '2px solid #454341', borderRadius: 0 }}
+            >
+              <Edit className="w-3 h-3" />
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onDelete(agent.id)}
+              className="wolf-hard-shadow-button h-6 px-1.5"
+              style={{ backgroundColor: '#fbf7f2', color: '#ff7169', border: '2px solid #454341', borderRadius: 0 }}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

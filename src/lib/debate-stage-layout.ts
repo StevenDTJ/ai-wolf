@@ -34,6 +34,18 @@ export interface TwoPersonRosterRow {
   configLabel: '已配置' | '未配置';
 }
 
+export interface TwoPersonFrameSpec {
+  modeTogglePlacement: 'stage-header';
+  composerPlacement: 'stage-footer';
+  showVerboseRightRail: boolean;
+}
+
+export interface TwoPersonIdleSpec {
+  showMatchupPreview: boolean;
+  showLegacyArenaBlock: boolean;
+  launchActionStyle: 'icon-only';
+}
+
 export function isTwoPersonLaunchEnabled(
   topic: string,
   hasConfiguredPro: boolean,
@@ -64,4 +76,20 @@ export function buildTwoPersonRosterRows(items: TwoPersonRosterInput[]): TwoPers
     modelLabel: item.model,
     configLabel: item.hasApiKey ? '已配置' : '未配置',
   }));
+}
+
+export function getTwoPersonFrameSpec(isRunning: boolean): TwoPersonFrameSpec {
+  return {
+    modeTogglePlacement: 'stage-header',
+    composerPlacement: 'stage-footer',
+    showVerboseRightRail: isRunning ? false : false,
+  };
+}
+
+export function getTwoPersonIdleSpec(): TwoPersonIdleSpec {
+  return {
+    showMatchupPreview: true,
+    showLegacyArenaBlock: false,
+    launchActionStyle: 'icon-only',
+  };
 }

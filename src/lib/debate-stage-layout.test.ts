@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTwoPersonRosterRows,
   getTwoPersonComposerState,
+  getTwoPersonFrameSpec,
+  getTwoPersonIdleSpec,
   getTwoPersonRailState,
   isTwoPersonLaunchEnabled,
 } from './debate-stage-layout';
@@ -41,5 +43,21 @@ describe('debate stage layout helpers', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({ sideLabel: '正方', configLabel: '已配置' });
     expect(rows[1]).toMatchObject({ sideLabel: '反方', configLabel: '未配置' });
+  });
+
+  it('defines center-stage frame ownership for 2-person mode', () => {
+    const frame = getTwoPersonFrameSpec(false);
+
+    expect(frame.modeTogglePlacement).toBe('stage-header');
+    expect(frame.composerPlacement).toBe('stage-footer');
+    expect(frame.showVerboseRightRail).toBe(false);
+  });
+
+  it('defines lightweight idle stage and icon composer action', () => {
+    const idle = getTwoPersonIdleSpec();
+
+    expect(idle.showMatchupPreview).toBe(true);
+    expect(idle.showLegacyArenaBlock).toBe(false);
+    expect(idle.launchActionStyle).toBe('icon-only');
   });
 });

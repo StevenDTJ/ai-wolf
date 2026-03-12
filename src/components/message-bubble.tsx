@@ -246,7 +246,7 @@ export function MessageBubble({
             </div>
             {isStreaming && (
               <span
-                className="inline-block w-0.5 h-4 ml-0.5 align-middle"
+                className="debate-streaming-caret inline-block w-0.5 h-4 ml-0.5 align-middle"
                 style={{ backgroundColor: styles.avatarBg }}
               />
             )}

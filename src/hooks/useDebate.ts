@@ -86,6 +86,32 @@ function flattenContentParts(content: unknown): string | undefined {
   return text || undefined;
 }
 
+function consumeSseDataLines(
+  buffer: string,
+  chunk: string
+): { dataLines: string[]; buffer: string } {
+  const merged = `${buffer}${chunk}`.replace(/\r\n/g, '\n');
+  const lines = merged.split('\n');
+  const rest = lines.pop() ?? '';
+  const dataLines = lines
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .filter((line) => line.length > 0);
+
+  return { dataLines, buffer: rest };
+}
+
+function consumeTrailingSseLine(buffer: string): string[] {
+  const line = buffer.trim();
+  if (!line.startsWith('data:')) {
+    return [];
+  }
+
+  const data = line.slice(5).trimStart();
+  return data ? [data] : [];
+}
+
 // 从不同格式的响应中提取内容
 export function extractContentFromResponse(parsed: Record<string, unknown>): string | undefined {
   // 标准 OpenAI 格式: choices[0].delta.content
@@ -100,9 +126,6 @@ export function extractContentFromResponse(parsed: Record<string, unknown>): str
   // 非流式响应格式: choices[0].message.content
   const messageContent = flattenContentParts(choices?.[0]?.message?.content);
   if (messageContent) return messageContent;
-
-  const reasoningContent = choices?.[0]?.message?.reasoning_content || choices?.[0]?.delta?.reasoning_content;
-  if (reasoningContent) return reasoningContent;
 
   // Gemini 格式: candidates[0].content.parts[0].text
   const candidates = parsed.candidates as Array<{ content?: { parts?: Array<{ text?: string }> } }> | undefined;
@@ -259,6 +282,7 @@ export function useDebate() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStreamingContent, setCurrentStreamingContent] = useState<string>('');
+  const [pausedStreamingMessage, setPausedStreamingMessage] = useState<DebateMessage | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isRunningRef = useRef(false);
   const playbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -276,6 +300,7 @@ export function useDebate() {
   const [currentSpeakerId, setCurrentSpeakerId] = useState<string | null>(null);
   const [proDebaters, setProDebaters] = useState<Debater[]>([]);
   const [conDebaters, setConDebaters] = useState<Debater[]>([]);
+  const [judgeDebater, setJudgeDebater] = useState<Debater | null>(null);
 
   // 攻辩环节状态
   const [crossExamState, setCrossExamState] = useState<{
@@ -424,6 +449,7 @@ export function useDebate() {
     }
 
     isRunningRef.current = true;
+    setPausedStreamingMessage(null);
     setCurrentStreamingContent('');
     setSession({
       topic,
@@ -448,6 +474,7 @@ export function useDebate() {
       abortControllerRef.current.abort();
     }
     isRunningRef.current = false;
+    setPausedStreamingMessage(null);
     setCurrentStreamingContent('');
     setSession(null);
     setIsLoading(false);
@@ -459,6 +486,7 @@ export function useDebate() {
     setCurrentSpeakerId(null);
     setProDebaters([]);
     setConDebaters([]);
+    setJudgeDebater(null);
     // Reset cross-exam state
     setCrossExamState({
       isActive: false,
@@ -493,6 +521,7 @@ export function useDebate() {
       abortControllerRef.current = null;
     }
     isRunningRef.current = false;
+    setPausedStreamingMessage(null);
     setCurrentStreamingContent('');
     setIsLoading(false);
     setSession((prev) =>
@@ -624,20 +653,88 @@ export function useDebate() {
   // Pause debate
   const pauseDebate = useCallback(() => {
     clearPlaybackTimer();
+
+    const trimmedStreaming = currentStreamingContent.trim();
+    if (trimmedStreaming.length > 0) {
+      const stage = DEBATE_FLOW.find((s) => s.id === currentStageId) || null;
+      const fallbackStance: Stance = stage?.speakerTeam === 'judge'
+        ? 'judge'
+        : stage?.speakerTeam === 'con'
+          ? 'con'
+          : 'pro';
+
+      let snapshotAgentId = currentSpeakerId || 'streaming';
+      let snapshotAgentName = '匿名辩手';
+      let snapshotStance: Stance = fallbackStance;
+      let snapshotRole: DebaterRole | undefined;
+
+      if (currentSpeakerId) {
+        const debaterPool: Debater[] = [
+          ...proDebaters,
+          ...conDebaters,
+          ...(judgeDebater ? [judgeDebater] : []),
+        ];
+        const matchedDebater = debaterPool.find((debater) => debater.id === currentSpeakerId);
+        if (matchedDebater) {
+          snapshotAgentId = matchedDebater.id;
+          snapshotAgentName = matchedDebater.name;
+          snapshotStance = matchedDebater.team === 'judge' ? 'judge' : matchedDebater.team;
+          snapshotRole = matchedDebater.role;
+        } else {
+          const matchedAgent = session?.agents.find((agent) => agent.id === currentSpeakerId);
+          if (matchedAgent) {
+            snapshotAgentId = matchedAgent.id;
+            snapshotAgentName = matchedAgent.name;
+            snapshotStance = matchedAgent.stance;
+          }
+        }
+      } else if (session) {
+        const activeAgent = session.agents[session.currentAgentIndex];
+        if (activeAgent) {
+          snapshotAgentId = activeAgent.id;
+          snapshotAgentName = activeAgent.name;
+          snapshotStance = activeAgent.stance;
+        }
+      }
+
+      setPausedStreamingMessage({
+        id: `paused-${Date.now()}`,
+        agentId: snapshotAgentId,
+        agentName: snapshotAgentName,
+        stance: snapshotStance,
+        content: currentStreamingContent,
+        timestamp: Date.now(),
+        stageId: stage?.id,
+        speechType: stage?.speechType,
+        role: snapshotRole,
+      });
+    }
+
     if (abortControllerRef.current && !pendingPlaybackRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
       setIsLoading(false);
     }
+    setCurrentStreamingContent('');
     isRunningRef.current = false;
     setSession((prev) =>
       prev ? { ...prev, isRunning: false } : null
     );
-  }, [clearPlaybackTimer]);
+  }, [
+    clearPlaybackTimer,
+    currentSpeakerId,
+    currentStageId,
+    currentStreamingContent,
+    proDebaters,
+    conDebaters,
+    judgeDebater,
+    session,
+  ]);
 
   // Resume debate
   const resumeDebate = useCallback(() => {
     isRunningRef.current = true;
+    setPausedStreamingMessage(null);
     setSession((prev) =>
       prev ? { ...prev, isRunning: true } : null
     );
@@ -737,6 +834,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let content = '';
+      let sseBuffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -747,14 +845,10 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
         }
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) {
-            continue;
-          }
-
-          const data = line.slice(6);
+        for (const data of consumed.dataLines) {
           if (data === '[DONE]') {
             continue;
           }
@@ -771,6 +865,19 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
           } catch {
             continue;
           }
+        }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = extractContentFromResponse(parsed);
+          if (!delta) continue;
+          content += delta;
+          onChunk?.(content, false);
+        } catch {
+          continue;
         }
       }
 
@@ -793,6 +900,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
     const agent = session.agents[session.currentAgentIndex];
     setIsLoading(true);
     setError(null);
+    setPausedStreamingMessage(null);
     setCurrentStreamingContent('');
     pendingPlaybackRef.current = {
       fullContent: '',
@@ -845,6 +953,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
+    setPausedStreamingMessage(null);
     setCurrentStreamingContent('');
     setIsLoading(false);
   }, [clearPlaybackTimer]);
@@ -858,22 +967,59 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
     return DEBATE_FLOW.find((s) => s.id === currentStageId) || null;
   }, [currentStageId]);
 
+  const buildJudgeDebater = useCallback((): Debater | null => {
+    if (judgeDebater && judgeDebater.apiKey.trim()) {
+      return {
+        ...judgeDebater,
+        team: 'judge',
+        role: 'first',
+      };
+    }
+
+    const seed = proDebaters[0] ?? conDebaters[0];
+    if (!seed) return null;
+
+    return {
+      id: 'judge-auto',
+      name: '裁判',
+      role: 'first',
+      team: 'judge',
+      model: seed.model,
+      baseUrl: seed.baseUrl,
+      apiKey: seed.apiKey,
+      systemPrompt: DEFAULT_SYSTEM_PROMPTS.judge,
+      temperature: seed.temperature,
+      maxTokens: seed.maxTokens,
+    };
+  }, [judgeDebater, proDebaters, conDebaters]);
+
   // Get current speaker for 8-person debate
   const getCurrentSpeaker = useCallback((): Debater | null => {
+    if (currentSpeakerId) {
+      const allDebaters: Debater[] = [...proDebaters, ...conDebaters];
+      const judge = buildJudgeDebater();
+      if (judge) {
+        allDebaters.push(judge);
+      }
+      const current = allDebaters.find((d) => d.id === currentSpeakerId);
+      if (current) return current;
+    }
+
     const stage = getCurrentStage();
     if (!stage) return null;
-    if (stage.speakerTeam === 'judge') return null;
+    if (stage.speakerTeam === 'judge') return buildJudgeDebater();
 
     const debaters = stage.speakerTeam === 'pro' ? proDebaters : conDebaters;
     const role = stage.speakerRole || 'first';
     return debaters.find((d) => d.role === role) || null;
-  }, [getCurrentStage, proDebaters, conDebaters]);
+  }, [getCurrentStage, buildJudgeDebater, currentSpeakerId, proDebaters, conDebaters]);
 
   // Start 8-person debate
   const startEightPersonDebate = useCallback((
     topic: string,
     pro: Debater[],
-    con: Debater[]
+    con: Debater[],
+    judge?: Debater
   ) => {
     // Filter out debaters without API key
     const validPro = pro.filter((d) => d.apiKey.trim());
@@ -885,12 +1031,14 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
     }
 
     isRunningRef.current = true;
+    setPausedStreamingMessage(null);
     setCurrentStageId(1);
     setCompletedStages([]);
     setStageStartTime(null);
     setCurrentSpeakerId(null);
     setProDebaters(validPro);
     setConDebaters(validCon);
+    setJudgeDebater(judge ?? null);
     setCurrentStreamingContent('');
 
     // Convert debaters to agents for session
@@ -946,16 +1094,6 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-
-    // Get role-specific prompt
-    const teamSide = stage.speakerTeam as 'pro' | 'con';
-    const rolePrompts = {
-      first: { pro: DEFAULT_SYSTEM_PROMPTS.pro, con: DEFAULT_SYSTEM_PROMPTS.con },
-      second: { pro: DEFAULT_SYSTEM_PROMPTS.pro, con: DEFAULT_SYSTEM_PROMPTS.con },
-      third: { pro: DEFAULT_SYSTEM_PROMPTS.pro, con: DEFAULT_SYSTEM_PROMPTS.con },
-      fourth: { pro: DEFAULT_SYSTEM_PROMPTS.pro, con: DEFAULT_SYSTEM_PROMPTS.con },
-    };
-    const basePrompt = rolePrompts[role][teamSide];
 
     // Build conversation history with stage info
     const historyContent = history.length > 0
@@ -1032,6 +1170,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let content = '';
+      let sseBuffer = '';
 
       console.log('[API Response] Starting to read stream...');
 
@@ -1045,29 +1184,44 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
 
         const chunk = decoder.decode(value, { stream: true });
         console.log('[API Raw Chunk]:', chunk.substring(0, 500));
-        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('[API] Received [DONE]');
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
-              const delta = extractContentFromResponse(parsed);
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              if (delta) {
-                content += delta;
-                onChunk?.(content, false);
-              }
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+        for (const data of consumed.dataLines) {
+          if (data === '[DONE]') {
+            console.log('[API] Received [DONE]');
+            continue;
           }
+
+          try {
+            const parsed = JSON.parse(data);
+            console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
+            const delta = extractContentFromResponse(parsed);
+            console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+            if (delta) {
+              content += delta;
+              onChunk?.(content, false);
+            }
+          } catch (e) {
+            console.log('[API Parse error]:', e);
+          }
+        }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') {
+          continue;
+        }
+
+        try {
+          const parsed = JSON.parse(data);
+          const delta = extractContentFromResponse(parsed);
+          if (delta) {
+            content += delta;
+            onChunk?.(content, false);
+          }
+        } catch (e) {
+          console.log('[API Parse error]:', e);
         }
       }
 
@@ -1081,6 +1235,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
   // Generate next turn for 8-person debate
   const generateNextStage = useCallback(async () => {
     if (!session) return;
+    setPausedStreamingMessage(null);
 
     const stage = getCurrentStage();
     if (!stage) return;
@@ -1152,7 +1307,20 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
     setCurrentStreamingContent('');
 
     try {
-      const debaters = stage.speakerTeam === 'pro' ? proDebaters : conDebaters;
+      const debaters = stage.speakerTeam === 'pro'
+        ? proDebaters
+        : stage.speakerTeam === 'con'
+          ? conDebaters
+          : (() => {
+              const judge = buildJudgeDebater();
+              return judge ? [judge] : [];
+            })();
+
+      if (debaters.length === 0) {
+        setError('未找到当前发言辩手');
+        setIsLoading(false);
+        return;
+      }
 
       const content = await callAIForStage(
         debaters,
@@ -1294,23 +1462,25 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
 
       // 完成该阶段，添加到会话消息
       if (crossExamGroup.messages.length > 0) {
-        const combinedContent = crossExamGroup.messages
-          .map(m => `${m.senderName}: ${m.content}`)
-          .join('\n\n');
+        for (const crossMessage of crossExamGroup.messages) {
+          const isAttacker = crossMessage.senderId === attacker.id;
+          const sender = isAttacker ? attacker : defender;
+          const stance: Stance = sender.team === 'judge' ? 'judge' : sender.team;
 
-        const message: DebateMessage = {
-          id: uuidv4(),
-          agentId: attacker.id,
-          agentName: `${attacker.name} vs ${defender.name}`,
-          stance: stage.speakerTeam as Stance,
-          content: combinedContent,
-          timestamp: Date.now(),
-          stageId: stage.id,
-          speechType: stage.speechType,
-          role: stage.speakerRole,
-        };
+          const message: DebateMessage = {
+            id: uuidv4(),
+            agentId: sender.id,
+            agentName: sender.name,
+            stance,
+            content: crossMessage.content,
+            timestamp: crossMessage.timestamp,
+            stageId: stage.id,
+            speechType: stage.speechType,
+            role: sender.role,
+          };
 
-        addMessage(message);
+          addMessage(message);
+        }
       }
 
       // 重置攻辩状态
@@ -1320,6 +1490,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
         attackContent: '',
         waitingForDefender: false,
       });
+      setCurrentSpeakerId(null);
 
       // Move to next stage
       if (stage.id < DEBATE_FLOW.length) {
@@ -1342,6 +1513,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
         attackContent: '',
         waitingForDefender: false,
       });
+      setCurrentSpeakerId(null);
     } finally {
       setIsLoading(false);
       setCurrentStreamingContent('');
@@ -1566,6 +1738,7 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
       const reader = response.body.getReader();
       const decoder = new TextDecoder('utf-8');
       let content = '';
+      let sseBuffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -1573,29 +1746,48 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
 
         const chunk = decoder.decode(value, { stream: true });
         console.log('[API Raw Chunk]:', chunk.substring(0, 500));
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('[API] Received [DONE]');
-              setCurrentStreamingContent(content);
-              await processFreeDebateResponse(content, speaker);
-              return;
-            }
-            try {
-              const json = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
-              const delta = extractContentFromResponse(json) || '';
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              content += delta;
-              setCurrentStreamingContent(content);
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+        for (const data of consumed.dataLines) {
+          if (data === '[DONE]') {
+            console.log('[API] Received [DONE]');
+            setCurrentStreamingContent(content);
+            await processFreeDebateResponse(content, speaker);
+            return;
+          }
+          try {
+            const json = JSON.parse(data);
+            console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
+            const delta = extractContentFromResponse(json) || '';
+            console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+            content += delta;
+            setCurrentStreamingContent(content);
+          } catch (e) {
+            console.log('[API Parse error]:', e);
           }
         }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') {
+          setCurrentStreamingContent(content);
+          await processFreeDebateResponse(content, speaker);
+          return;
+        }
+        try {
+          const json = JSON.parse(data);
+          const delta = extractContentFromResponse(json) || '';
+          content += delta;
+          setCurrentStreamingContent(content);
+        } catch (e) {
+          console.log('[API Parse error]:', e);
+        }
+      }
+
+      if (content.trim()) {
+        setCurrentStreamingContent(content);
+        await processFreeDebateResponse(content, speaker);
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -1820,6 +2012,7 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let content = '';
+    let sseBuffer = '';
 
     try {
       while (true) {
@@ -1827,26 +2020,41 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              onChunk(content, true);
-              return content;
-            }
-            try {
-              const json = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
-              const delta = extractContentFromResponse(json) || '';
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              content += delta;
-              onChunk(content, false);
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+        for (const data of consumed.dataLines) {
+          if (data === '[DONE]') {
+            onChunk(content, true);
+            return content;
           }
+          try {
+            const json = JSON.parse(data);
+            console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
+            const delta = extractContentFromResponse(json) || '';
+            console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+            content += delta;
+            onChunk(content, false);
+          } catch (e) {
+            console.log('[API Parse error]:', e);
+          }
+        }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') {
+          onChunk(content, true);
+          return content;
+        }
+        try {
+          const json = JSON.parse(data);
+          console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
+          const delta = extractContentFromResponse(json) || '';
+          console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+          content += delta;
+          onChunk(content, false);
+        } catch (e) {
+          console.log('[API Parse error]:', e);
         }
       }
     } finally {
@@ -2015,6 +2223,7 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let content = '';
+    let sseBuffer = '';
 
     try {
       while (true) {
@@ -2023,27 +2232,43 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
 
         const chunk = decoder.decode(value, { stream: true });
         console.log('[API Raw Chunk]:', chunk.substring(0, 500));
-        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('[API] Received [DONE]');
-              onChunk(content, true);
-              return content;
-            }
-            try {
-              const json = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
-              const delta = extractContentFromResponse(json) || '';
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              content += delta;
-              onChunk(content, false);
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+        for (const data of consumed.dataLines) {
+          if (data === '[DONE]') {
+            console.log('[API] Received [DONE]');
+            onChunk(content, true);
+            return content;
           }
+          try {
+            const json = JSON.parse(data);
+            console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
+            const delta = extractContentFromResponse(json) || '';
+            console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+            content += delta;
+            onChunk(content, false);
+          } catch (e) {
+            console.log('[API Parse error]:', e);
+          }
+        }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') {
+          console.log('[API] Received [DONE]');
+          onChunk(content, true);
+          return content;
+        }
+        try {
+          const json = JSON.parse(data);
+          console.log('[API Parsed JSON]:', JSON.stringify(json).substring(0, 500));
+          const delta = extractContentFromResponse(json) || '';
+          console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+          content += delta;
+          onChunk(content, false);
+        } catch (e) {
+          console.log('[API Parse error]:', e);
         }
       }
     } finally {
@@ -2063,6 +2288,7 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
     stage: DebateStage,
     group: CrossExamGroup
   ) => {
+    setCurrentSpeakerId(attacker.id);
     setCurrentStreamingContent('');
 
     // 构建攻方系统提示
@@ -2121,6 +2347,7 @@ ${recentMessages.length > 0 ? `以下是辩论历史：\n${recentMessages.map(m 
     stage: DebateStage,
     group: CrossExamGroup
   ) => {
+    setCurrentSpeakerId(defender.id);
     setIsLoading(true);
     setCurrentStreamingContent('');
 
@@ -2251,6 +2478,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let content = '';
+      let sseBuffer = '';
 
       console.log('[API Response] Starting to read stream...');
 
@@ -2261,29 +2489,47 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
 
         const chunk = decoder.decode(value, { stream: true });
         console.log('[API Raw Chunk]:', chunk.substring(0, 500));
-        const lines = chunk.split('\n').filter((line) => line.trim() !== '');
+        const consumed = consumeSseDataLines(sseBuffer, chunk);
+        sseBuffer = consumed.buffer;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              console.log('[API] Received [DONE]');
-              continue;
-            }
-
-            try {
-              const parsed = JSON.parse(data);
-              console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
-              const delta = extractContentFromResponse(parsed);
-              console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
-              if (delta) {
-                content += delta;
-                onChunk?.(content, false);
-              }
-            } catch (e) {
-              console.log('[API Parse error]:', e);
-            }
+        for (const data of consumed.dataLines) {
+          if (data === '[DONE]') {
+            console.log('[API] Received [DONE]');
+            continue;
           }
+
+          try {
+            const parsed = JSON.parse(data);
+            console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
+            const delta = extractContentFromResponse(parsed);
+            console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+            if (delta) {
+              content += delta;
+              onChunk?.(content, false);
+            }
+          } catch (e) {
+            console.log('[API Parse error]:', e);
+          }
+        }
+      }
+
+      for (const data of consumeTrailingSseLine(sseBuffer)) {
+        if (data === '[DONE]') {
+          console.log('[API] Received [DONE]');
+          continue;
+        }
+
+        try {
+          const parsed = JSON.parse(data);
+          console.log('[API Parsed JSON]:', JSON.stringify(parsed).substring(0, 500));
+          const delta = extractContentFromResponse(parsed);
+          console.log('[API Extracted delta]:', delta ? delta.substring(0, 200) : 'undefined/null');
+          if (delta) {
+            content += delta;
+            onChunk?.(content, false);
+          }
+        } catch (e) {
+          console.log('[API Parse error]:', e);
         }
       }
 
@@ -2299,6 +2545,7 @@ ${historyContent ? `辩论历史:\n${historyContent}` : ''}
     isLoading,
     error,
     currentStreamingContent,
+    pausedStreamingMessage,
     startDebate,
     pauseDebate,
     resumeDebate,

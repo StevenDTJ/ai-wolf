@@ -185,16 +185,28 @@ export function AgentForm({ agent, onSave, onCancel, showStance = true }: AgentF
 
   // Handle apply preset
   const handleApplyPreset = (preset: DebatePlayerPreset) => {
-    setFormData((prev) => ({
-      ...prev,
+    const nextFormData: AgentConfig = {
+      ...formData,
       model: preset.model,
       baseUrl: preset.baseUrl,
       apiKey: preset.apiKey,
       temperature: preset.temperature,
       thinkingMode: preset.thinkingMode,
+    };
+
+    setFormData(() => ({
+      ...nextFormData,
     }));
-    toast.success(`已应用预设 "${preset.name}"`);
+    onSave(nextFormData);
+    toast.success(`已应用预设 "${preset.name}" 并保存`);
     setPresetDialogOpen(false);
+  };
+
+  const handleChange = (field: keyof AgentConfig, value: string | number | boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   // Handle delete preset
@@ -202,10 +214,6 @@ export function AgentForm({ agent, onSave, onCancel, showStance = true }: AgentF
     const newPresets = presets.filter((p) => p.id !== presetId);
     savePresets(newPresets);
     toast.success('已删除预设');
-  };
-
-  const handleChange = (field: keyof AgentConfig, value: string | number | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handlePresetSelect = (prompt: string) => {

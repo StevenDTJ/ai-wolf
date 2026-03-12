@@ -96,15 +96,17 @@ export function AgentCard({
   }
 
   if (variant === 'stage') {
+    const isCon = agent.stance === 'con';
     return (
       <button
         type="button"
-        className="debate-stage-float-card transition-transform duration-150 hover:-translate-y-0.5"
+        className={`debate-stage-float-card transition-transform duration-150 hover:-translate-y-0.5 ${isCon ? 'debate-stage-float-card-con' : 'debate-stage-float-card-pro'}`}
         style={{
           backgroundColor: stanceStyle.bg,
           color: stanceStyle.text,
           border: '2px solid #454341',
           borderRadius: 0,
+          textAlign: isCon ? 'right' : 'left',
         }}
         onClick={() => onEdit(agent)}
       >

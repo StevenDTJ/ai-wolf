@@ -117,12 +117,25 @@ export function DebaterForm({ debater, onSave, onCancel }: DebaterFormProps) {
 
   // Handle apply preset
   const handleApplyPreset = (preset: DebatePlayerPreset) => {
+    const nextDebater: Debater = {
+      ...debater,
+      name,
+      model: preset.model,
+      baseUrl: preset.baseUrl,
+      apiKey: preset.apiKey,
+      systemPrompt,
+      temperature: preset.temperature,
+      maxTokens,
+      thinkingMode: preset.thinkingMode,
+    };
+
     setModel(preset.model);
     setBaseUrl(preset.baseUrl);
     setApiKey(preset.apiKey);
     setTemperature(preset.temperature);
     setThinkingMode(preset.thinkingMode);
-    toast.success(`已应用预设 "${preset.name}"`);
+    onSave(nextDebater);
+    toast.success(`已应用预设 "${preset.name}" 并保存`);
     setPresetDialogOpen(false);
   };
 

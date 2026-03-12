@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Ignore sibling git worktrees managed under the repo root.
     ".worktrees/**",
+    // Ignore nested repo copies used for reference and comparison.
+    "ai-wolf/**",
+    "ai-wolf-github/**",
   ]),
 ]);
 
